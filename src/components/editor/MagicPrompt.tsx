@@ -15,12 +15,12 @@ const EMPTY_SUGGESTIONS = [
 ];
 
 const CONTENT_SUGGESTIONS = [
-  'Clean up layout',
+  'Fix spacing inside boxes',
+  'Center text and align labels',
   'Add title',
-  'Wrap in a box',
   'Add labels',
-  'Fix spacing',
-  'Redesign',
+  'Wrap in a box',
+  'Redesign from scratch',
 ];
 
 export function MagicPrompt({ cellWidth, cellHeight }: { cellWidth: number; cellHeight: number }) {
