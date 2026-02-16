@@ -1,6 +1,7 @@
 import { CharGrid } from './grid-model';
 import { ObjectBounds } from './object-detection';
 import { PreviewCell } from '@/components/tools/types';
+import { BOX } from './box-chars';
 
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
@@ -170,20 +171,24 @@ export function computeResizedBounds(
 }
 
 /**
- * Build a box border with '+' corners and '-'/'|' edges.
+ * Build a box border with Unicode corners and edges.
  */
 function buildBoxChars(bounds: ObjectBounds): { row: number; col: number; char: string }[] {
   const cells: { row: number; col: number; char: string }[] = [];
 
   for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
-    const ch = c === bounds.minCol || c === bounds.maxCol ? '+' : '-';
-    cells.push({ row: bounds.minRow, col: c, char: ch });
-    cells.push({ row: bounds.maxRow, col: c, char: ch });
+    let topCh: string;
+    let botCh: string;
+    if (c === bounds.minCol) { topCh = BOX.TL; botCh = BOX.BL; }
+    else if (c === bounds.maxCol) { topCh = BOX.TR; botCh = BOX.BR; }
+    else { topCh = BOX.H; botCh = BOX.H; }
+    cells.push({ row: bounds.minRow, col: c, char: topCh });
+    cells.push({ row: bounds.maxRow, col: c, char: botCh });
   }
 
   for (let r = bounds.minRow + 1; r < bounds.maxRow; r++) {
-    cells.push({ row: r, col: bounds.minCol, char: '|' });
-    cells.push({ row: r, col: bounds.maxCol, char: '|' });
+    cells.push({ row: r, col: bounds.minCol, char: BOX.V });
+    cells.push({ row: r, col: bounds.maxCol, char: BOX.V });
   }
 
   return cells;

@@ -1,4 +1,5 @@
 import { DrawingTool, GridPos, PreviewCell, DrawResult } from './types';
+import { BOX } from '@/lib/box-chars';
 
 function buildLine(start: GridPos, end: GridPos): { row: number; col: number; char: string }[] {
   const cells: { row: number; col: number; char: string }[] = [];
@@ -11,7 +12,7 @@ function buildLine(start: GridPos, end: GridPos): { row: number; col: number; ch
     const maxC = Math.max(start.col, end.col);
     const row = start.row;
     for (let c = minC; c <= maxC; c++) {
-      cells.push({ row, col: c, char: '-' });
+      cells.push({ row, col: c, char: BOX.H });
     }
   } else {
     // Vertical line
@@ -19,7 +20,7 @@ function buildLine(start: GridPos, end: GridPos): { row: number; col: number; ch
     const maxR = Math.max(start.row, end.row);
     const col = start.col;
     for (let r = minR; r <= maxR; r++) {
-      cells.push({ row: r, col, char: '|' });
+      cells.push({ row: r, col, char: BOX.V });
     }
   }
 

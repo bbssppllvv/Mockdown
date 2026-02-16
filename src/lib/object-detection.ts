@@ -1,4 +1,5 @@
 import { CharGrid } from './grid-model';
+import { isBoxCorner, isBoxHorizontal, isBoxVertical } from './box-chars';
 
 export interface ObjectBounds {
   minRow: number;
@@ -18,12 +19,12 @@ export interface DetectedObject {
  * Detect a box at the given position by scanning for corners and validating edges.
  */
 function detectBox(grid: CharGrid, row: number, col: number): DetectedObject | null {
-  // Find the left wall: scan left for '|' or '+'
+  // Find the left wall: scan left for vertical or corner
   let leftCol = col;
   while (leftCol >= 0) {
     const ch = grid.getChar(row, leftCol);
-    if (ch === '|' || ch === '+') break;
-    if (ch !== ' ' && ch !== '-' && leftCol !== col) {
+    if (isBoxVertical(ch) || isBoxCorner(ch)) break;
+    if (ch !== ' ' && !isBoxHorizontal(ch) && leftCol !== col) {
       // Hit a non-box character, try from click position rightward
       break;
     }
@@ -32,72 +33,72 @@ function detectBox(grid: CharGrid, row: number, col: number): DetectedObject | n
   if (leftCol < 0) return null;
 
   const leftChar = grid.getChar(row, leftCol);
-  if (leftChar !== '|' && leftChar !== '+') return null;
+  if (!isBoxVertical(leftChar) && !isBoxCorner(leftChar)) return null;
 
-  // Find the right wall: scan right for '|' or '+'
+  // Find the right wall: scan right for vertical or corner
   let rightCol = col;
   while (rightCol < grid.cols) {
     const ch = grid.getChar(row, rightCol);
-    if ((ch === '|' || ch === '+') && rightCol !== leftCol) break;
+    if ((isBoxVertical(ch) || isBoxCorner(ch)) && rightCol !== leftCol) break;
     if (rightCol === leftCol) { rightCol++; continue; }
-    if (ch !== ' ' && ch !== '-') break;
+    if (ch !== ' ' && !isBoxHorizontal(ch)) break;
     rightCol++;
   }
   if (rightCol >= grid.cols) return null;
 
   const rightChar = grid.getChar(row, rightCol);
-  if (rightChar !== '|' && rightChar !== '+') return null;
+  if (!isBoxVertical(rightChar) && !isBoxCorner(rightChar)) return null;
 
   // Need at least 2 cols apart
   if (rightCol - leftCol < 2) return null;
 
-  // Scan up from leftCol to find top corner '+'
+  // Scan up from leftCol to find top corner
   let topRow = row;
   while (topRow >= 0) {
     const ch = grid.getChar(topRow, leftCol);
-    if (ch === '+') break;
-    if (ch !== '|') { topRow = -1; break; }
+    if (isBoxCorner(ch)) break;
+    if (!isBoxVertical(ch)) { topRow = -1; break; }
     topRow--;
   }
   if (topRow < 0) return null;
 
-  // Verify top-right corner is also '+'
-  if (grid.getChar(topRow, rightCol) !== '+') return null;
+  // Verify top-right corner is also a corner
+  if (!isBoxCorner(grid.getChar(topRow, rightCol))) return null;
 
-  // Scan down from leftCol to find bottom corner '+'
+  // Scan down from leftCol to find bottom corner
   let bottomRow = row;
   while (bottomRow < grid.rows) {
     const ch = grid.getChar(bottomRow, leftCol);
-    if (ch === '+' && bottomRow !== topRow) break;
-    if (ch !== '|' && ch !== '+') { bottomRow = grid.rows; break; }
+    if (isBoxCorner(ch) && bottomRow !== topRow) break;
+    if (!isBoxVertical(ch) && !isBoxCorner(ch)) { bottomRow = grid.rows; break; }
     bottomRow++;
   }
   if (bottomRow >= grid.rows) return null;
 
-  // Verify bottom-right corner is also '+'
-  if (grid.getChar(bottomRow, rightCol) !== '+') return null;
+  // Verify bottom-right corner is also a corner
+  if (!isBoxCorner(grid.getChar(bottomRow, rightCol))) return null;
 
   // Need at least 1 row apart
   if (bottomRow - topRow < 1) return null;
 
-  // Validate top edge: all '-' between corners
+  // Validate top edge: all horizontal between corners
   for (let c = leftCol + 1; c < rightCol; c++) {
-    if (grid.getChar(topRow, c) !== '-') return null;
+    if (!isBoxHorizontal(grid.getChar(topRow, c))) return null;
   }
 
   // Validate bottom edge
   for (let c = leftCol + 1; c < rightCol; c++) {
-    if (grid.getChar(bottomRow, c) !== '-') return null;
+    if (!isBoxHorizontal(grid.getChar(bottomRow, c))) return null;
   }
 
-  // Validate left edge: all '|' between corners
+  // Validate left edge: all vertical between corners
   for (let r = topRow + 1; r < bottomRow; r++) {
-    if (grid.getChar(r, leftCol) !== '|') return null;
+    if (!isBoxVertical(grid.getChar(r, leftCol))) return null;
   }
 
   // Validate right edge
   for (let r = topRow + 1; r < bottomRow; r++) {
-    if (grid.getChar(r, rightCol) !== '|') return null;
+    if (!isBoxVertical(grid.getChar(r, rightCol))) return null;
   }
 
   return {
