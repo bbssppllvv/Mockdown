@@ -3,26 +3,25 @@
  │                                      │
  │   (•˕ •マ   M O C K D O W N         │
  │                                      │
- │   ascii wireframes for AI agents     │
+ │   draw UI. copy text. feed your AI.  │
  │                                      │
  └──────────────────────────────────────┘
 ```
 
-## the problem
+AI agents read markdown better than they read your mind.
 
-you're working with an AI coding agent — Claude Code, Cursor, Copilot, whatever.
-you need a UI built. you start typing:
+Mockdown is an ascii wireframe editor. Draw a UI, copy it as a markdown code block, paste it into Claude Code or Cursor. The agent gets layout, hierarchy, and structure — no guessing.
 
-> "make a settings page with a sidebar on the left, and then like a form on the right,
-> with some toggles, and a save button at the bottom, oh and a header..."
+## why
 
-the agent tries its best. the result is... not what you meant.
+You describe a settings page in words. The agent builds... something.
 
-## the fix
+> "sidebar on the left, form on the right, some toggles,
+> a save button at the bottom, oh and a header..."
 
-**draw it.** mockdown lets you sketch a wireframe in ascii characters and copy it as markdown. paste it straight into your agent's prompt. done.
+Three rounds of "no, not like that" later, you're still not there.
 
-AI agents understand text and markdown natively. a simple ascii drawing tells them more about layout, hierarchy, and structure than a paragraph of words ever could.
+**One ascii sketch replaces the whole conversation:**
 
 ```
 ┌──────────────────────────────────────────────────┐
@@ -43,11 +42,10 @@ AI agents understand text and markdown natively. a simple ascii drawing tells th
 └────────────┴─────────────────────────────────────┘
 ```
 
-paste this into Claude Code → get a working page. no ambiguity, no "that's not what I meant".
+Paste this into Claude Code → working page. First try.
 
 ## more examples
 
-**dashboard with stats cards:**
 ```
 ┌──────────────────────────────────────────────┐
 │  Dashboard                                   │
@@ -65,7 +63,6 @@ paste this into Claude Code → get a working page. no ambiguity, no "that's not
 └──────────────────────────────────────────────┘
 ```
 
-**signup flow:**
 ```
 ┌───────────────────────────────┐
 │         Create Account        │
@@ -85,35 +82,20 @@ paste this into Claude Code → get a working page. no ambiguity, no "that's not
 └───────────────────────────────┘
 ```
 
-**mobile nav:**
-```
-┌─────────────────────┐
-│ ☰  App Name   (o)   │
-├─────────────────────┤
-│                     │
-│  content here       │
-│                     │
-├──────┬──────┬───────┤
-│ Home │ Feed │ Inbox │
-└──────┴──────┴───────┘
-```
-
 ## how it works
 
-1. open mockdown in your browser
-2. draw with tools — boxes, lines, arrows, text, widgets
-3. click **Copy Markdown** — your wireframe is now a markdown code block
-4. paste it into your AI agent's chat
-5. the agent builds exactly what you drew
+1. draw with tools — boxes, lines, arrows, text, widgets
+2. click **Copy Markdown**
+3. paste into your agent's prompt
 
 ## features
 
-- **draw** — boxes, lines, arrows with mouse
+- **draw** — boxes, lines, arrows
 - **widgets** — buttons `[ OK ]`, checkboxes `[x]`, radio `(o)`, inputs `[____]`, dropdowns `[v]`
-- **text mode** — type anywhere on the grid
-- **select & move** — drag stuff around
+- **text** — type anywhere
+- **select & move**
 - **magic tool** — select a region, describe what you want, AI fills it in
-- **copy markdown** — one click, ready to paste into any agent
+- **copy markdown** — one click, ready for your agent
 - **undo/redo** — ctrl+z / ctrl+shift+z
 
 ## run locally
@@ -133,4 +115,4 @@ next.js · react · zustand · tailwind · html canvas · jetbrains mono
 
 ## license
 
-MIT — do whatever you want (ᵕ‿ ᵕマ
+MIT (ᵕ‿ ᵕマ
