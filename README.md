@@ -107,7 +107,7 @@ npm run dev
 
 open `http://localhost:3000`
 
-for the magic tool, add `OPENAI_API_KEY` to `.env.local`.
+for the magic tool, add `OPENROUTER_API_KEY` to `.env.local`.
 
 ## stack
 
