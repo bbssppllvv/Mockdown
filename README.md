@@ -1,66 +1,122 @@
 ```
  ┌──────────────────────────────────────┐
  │                                      │
- │   (•˕ •マ  ← your new design buddy  │
+ │   (•˕ •マ   M O C K D O W N         │
  │                                      │
- │          M O C K D O W N             │
- │                                      │
- │     ascii wireframe editor           │
+ │   ascii wireframes for AI agents     │
  │                                      │
  └──────────────────────────────────────┘
 ```
 
-draw wireframes with your keyboard. copy as markdown. paste anywhere.
+## the problem
 
-no figma. no drag-and-drop. just you, a grid, and ascii characters.
+you're working with an AI coding agent — Claude Code, Cursor, Copilot, whatever.
+you need a UI built. you start typing:
 
-## what is this (•˕ •マ
+> "make a settings page with a sidebar on the left, and then like a form on the right,
+> with some toggles, and a save button at the bottom, oh and a header..."
 
-mockdown is a browser-based wireframe editor where everything is made of text characters.
-draw boxes, lines, arrows, buttons, checkboxes, dropdowns — all in ascii art.
-then copy the result as a markdown code block and paste it into docs, issues, PRs, slack, wherever.
+the agent tries its best. the result is... not what you meant.
+
+## the fix
+
+**draw it.** mockdown lets you sketch a wireframe in ascii characters and copy it as markdown. paste it straight into your agent's prompt. done.
+
+AI agents understand text and markdown natively. a simple ascii drawing tells them more about layout, hierarchy, and structure than a paragraph of words ever could.
 
 ```
-┌─────────────────────────────┐
-│ Username  [_______________] │
-│ Password  [_______________] │
-│                             │
-│ [x] Remember me             │
-│                             │
-│       [ Sign In ]           │
-└─────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│  Settings                              [ Save ]  │
+├────────────┬─────────────────────────────────────┤
+│            │                                     │
+│  Profile   │  Display Name  [_______________]    │
+│  Security  │  Email         [_______________]    │
+│  Billing   │                                     │
+│  API       │  Bio                                │
+│            │  ┌─────────────────────────────┐    │
+│            │  │                             │    │
+│            │  └─────────────────────────────┘    │
+│            │                                     │
+│            │  [x] Public profile                 │
+│            │  [ ] Show email                     │
+│            │                                     │
+└────────────┴─────────────────────────────────────┘
 ```
 
-stuff like that. made in seconds.
+paste this into Claude Code → get a working page. no ambiguity, no "that's not what I meant".
+
+## more examples
+
+**dashboard with stats cards:**
+```
+┌──────────────────────────────────────────────┐
+│  Dashboard                                   │
+├──────────────┬──────────────┬────────────────┤
+│  Users       │  Revenue     │  Orders        │
+│  12,847      │  $48,290     │  1,043         │
+│  +12%        │  +8.3%       │  -2.1%         │
+├──────────────┴──────────────┴────────────────┤
+│                                              │
+│  ┌──────────────────────────────────────┐    │
+│  │  ~ chart area ~                      │    │
+│  │                                      │    │
+│  └──────────────────────────────────────┘    │
+│                                              │
+└──────────────────────────────────────────────┘
+```
+
+**signup flow:**
+```
+┌───────────────────────────────┐
+│         Create Account        │
+│                               │
+│  Name      [_______________]  │
+│  Email     [_______________]  │
+│  Password  [_______________]  │
+│                               │
+│  (o) Personal   ( ) Business  │
+│                               │
+│  [x] I agree to the terms     │
+│                               │
+│      [ Create Account ]       │
+│                               │
+│  Already have an account?     │
+│  Log in                       │
+└───────────────────────────────┘
+```
+
+**mobile nav:**
+```
+┌─────────────────────┐
+│ ☰  App Name   (o)   │
+├─────────────────────┤
+│                     │
+│  content here       │
+│                     │
+├──────┬──────┬───────┤
+│ Home │ Feed │ Inbox │
+└──────┴──────┴───────┘
+```
+
+## how it works
+
+1. open mockdown in your browser
+2. draw with tools — boxes, lines, arrows, text, widgets
+3. click **Copy Markdown** — your wireframe is now a markdown code block
+4. paste it into your AI agent's chat
+5. the agent builds exactly what you drew
 
 ## features
 
 - **draw** — boxes, lines, arrows with mouse
 - **widgets** — buttons `[ OK ]`, checkboxes `[x]`, radio `(o)`, inputs `[____]`, dropdowns `[v]`
-- **text mode** — just type anywhere on the grid
+- **text mode** — type anywhere on the grid
 - **select & move** — drag stuff around
-- **magic tool** — select a region, describe what you want, AI draws it for you (ᵕω ᵕマ
+- **magic tool** — select a region, describe what you want, AI fills it in
+- **copy markdown** — one click, ready to paste into any agent
 - **undo/redo** — ctrl+z / ctrl+shift+z
-- **copy markdown** — one click, ready to paste
-- **resizable grid** — small, medium, large, wide, tall
-- **a cat** — lives in the sidebar. blinks. sometimes yawns. (•˕ •マ
 
-## the cat
-
-there's an ascii cat in the toolbar. it has its own life:
-
-```
-(•˕ •マ       idle, just vibing
-(–˕ –マ       blink
-(ᵕω ᵕマ      happy
-(°o °マ       surprised
-(˘˕ ˘マ ᶻ    sleepy...
-(–ー –マ ᶻᶻ   asleep
-```
-
-click it. it reacts. leave it alone — it falls asleep. it does not care about your wireframes.
-
-## run it
+## run locally
 
 ```bash
 npm install
@@ -69,12 +125,12 @@ npm run dev
 
 open `http://localhost:3000`
 
-for the magic tool, set `OPENAI_API_KEY` in `.env.local`.
+for the magic tool, add `OPENAI_API_KEY` to `.env.local`.
 
 ## stack
 
-next.js, react, zustand, tailwind, html canvas, jetbrains mono
+next.js · react · zustand · tailwind · html canvas · jetbrains mono
 
 ## license
 
-do whatever you want (ᵕ‿ ᵕマ
+MIT — do whatever you want (ᵕ‿ ᵕマ
