@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+ ┌──────────────────────────────────────┐
+ │                                      │
+ │   (•˕ •マ  ← your new design buddy  │
+ │                                      │
+ │          M O C K D O W N             │
+ │                                      │
+ │     ascii wireframe editor           │
+ │                                      │
+ └──────────────────────────────────────┘
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+draw wireframes with your keyboard. copy as markdown. paste anywhere.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+no figma. no drag-and-drop. just you, a grid, and ascii characters.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## what is this (•˕ •マ
 
-## Learn More
+mockdown is a browser-based wireframe editor where everything is made of text characters.
+draw boxes, lines, arrows, buttons, checkboxes, dropdowns — all in ascii art.
+then copy the result as a markdown code block and paste it into docs, issues, PRs, slack, wherever.
 
-To learn more about Next.js, take a look at the following resources:
+```
+┌─────────────────────────────┐
+│ Username  [_______________] │
+│ Password  [_______________] │
+│                             │
+│ [x] Remember me             │
+│                             │
+│       [ Sign In ]           │
+└─────────────────────────────┘
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+stuff like that. made in seconds.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## features
 
-## Deploy on Vercel
+- **draw** — boxes, lines, arrows with mouse
+- **widgets** — buttons `[ OK ]`, checkboxes `[x]`, radio `(o)`, inputs `[____]`, dropdowns `[v]`
+- **text mode** — just type anywhere on the grid
+- **select & move** — drag stuff around
+- **magic tool** — select a region, describe what you want, AI draws it for you (ᵕω ᵕマ
+- **undo/redo** — ctrl+z / ctrl+shift+z
+- **copy markdown** — one click, ready to paste
+- **resizable grid** — small, medium, large, wide, tall
+- **a cat** — lives in the sidebar. blinks. sometimes yawns. (•˕ •マ
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## the cat
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+there's an ascii cat in the toolbar. it has its own life:
+
+```
+(•˕ •マ       idle, just vibing
+(–˕ –マ       blink
+(ᵕω ᵕマ      happy
+(°o °マ       surprised
+(˘˕ ˘マ ᶻ    sleepy...
+(–ー –マ ᶻᶻ   asleep
+```
+
+click it. it reacts. leave it alone — it falls asleep. it does not care about your wireframes.
+
+## run it
+
+```bash
+npm install
+npm run dev
+```
+
+open `http://localhost:3000`
+
+for the magic tool, set `OPENAI_API_KEY` in `.env.local`.
+
+## stack
+
+next.js, react, zustand, tailwind, html canvas, jetbrains mono
+
+## license
+
+do whatever you want (ᵕ‿ ᵕマ
