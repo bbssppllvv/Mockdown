@@ -4,32 +4,71 @@ import { isBoxCorner, isBoxVertical, isBoxHorizontal } from '@/lib/box-chars';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const MODEL = 'openai/gpt-4.1-mini';
 
-const SYSTEM_PROMPT = `You generate ASCII wireframe mockups using Unicode box-drawing characters. Output raw monospace text only — no markdown fences, no explanation.
+const SYSTEM_PROMPT = `You generate wireframe mockups for a monospace grid editor. Output raw text only — no markdown fences, no explanation, no commentary.
 
-Elements:
-  ┌────────┐       [ Button ]       [ ] Unchecked      ( ) Radio
-  │ Box    │       [v Dropdown  ]   [x] Checked        (*) Selected
-  └────────┘       [____________]   ─── line  ──→ arrow
+The user has selected a rectangular area on their canvas. Your output fills that area EXACTLY.
 
-Example — sign-in form (40 chars wide, 11 lines):
+RULES:
+1. Output EXACTLY the requested number of lines — no more, no fewer.
+2. Every line MUST be EXACTLY the requested character width. Pad lines with spaces on the right to reach the exact width.
+3. Do NOT wrap output in a border box UNLESS the user explicitly asks for a "box", "card", "panel", "dialog", or "frame". Most UI (navbars, menus, button rows, lists) should NOT have an outer border.
+4. No leading blank lines — start meaningful content on line 1.
+5. Use Unicode box-drawing characters for borders: ┌ ┐ └ ┘ ─ │
+6. Always close borders: every ┌ must have a matching ┐, every └ a matching ┘.
+
+ELEMENTS:
+  ┌──────┐ └──────┘ │  │   Box borders (only when requested)
+  [ Label ]                 Button
+  [v Options      ]         Dropdown
+  [_______________]         Text input
+  [ ] Label   [x] Label    Checkbox
+  ( ) Label   (*) Label    Radio button
+  ──────────                Horizontal rule / separator
+  ──→  ←──  ↓  ↑           Arrows
+
+EXAMPLE 1 — "Navigation bar" (44 chars × 3 lines):
+No outer border — user did not ask for a box.
+
+Home    About    Pricing    [ Sign In ]
+────────────────────────────────────────────
+
+
+EXAMPLE 2 — "Sign-in card" (40 chars × 10 lines):
+Has border — user said "card".
+
 ┌──────────────────────────────────────┐
-│             Sign In                  │
+│            Sign In                   │
 │                                      │
-│  Email:                              │
-│  [________________________________]  │
-│  Password:                           │
-│  [________________________________]  │
+│  Email    [________________________] │
+│  Password [________________________] │
 │                                      │
 │  [x] Remember me                     │
-│  [ Sign In ]  [ Sign up with Google ]│
+│                                      │
+│  [ Sign In ]  [ Forgot password? ]   │
 └──────────────────────────────────────┘
 
-Rules:
-- Start at column 0, no left margin
-- Use the full width, boxes span edge to edge
-- Close all borders on both sides
-- No blank lines at top
-- Use Unicode box-drawing characters: ┌ ┐ └ ┘ ─ │`;
+EXAMPLE 3 — "Sidebar menu" (20 chars × 7 lines):
+No outer border — just a list.
+
+Dashboard
+Projects
+Team
+────────────────────
+Analytics
+Settings
+[ Logout ]
+
+EXAMPLE 4 — "Two buttons and a link" (30 chars × 1 line):
+[ Cancel ]     [ Save ]  Help
+
+EXAMPLE 5 — editing existing content, prompt "Add a title above the inputs":
+Given area already contains UI elements. Modify in place — do NOT add a new outer border.
+
+Contact Us
+
+Name  [_____________________]
+Email [_____________________]
+[ Submit ]                    `;
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -41,9 +80,9 @@ export async function POST(req: NextRequest) {
 
   let userPrompt: string;
   if (existingContent) {
-    userPrompt = `Area ${width}x${height} contains:\n\`\`\`\n${existingContent}\n\`\`\`\nRequest: ${prompt}\nOutput ~${width} chars wide, ${height} lines.`;
+    userPrompt = `The selected ${width}×${height} area contains:\n\`\`\`\n${existingContent}\n\`\`\`\nRequest: ${prompt}\nOutput EXACTLY ${width} chars wide and EXACTLY ${height} lines. Do not add an outer border unless I asked for one.`;
   } else {
-    userPrompt = `${prompt}\nOutput ~${width} chars wide, ${height} lines.`;
+    userPrompt = `${prompt}\nOutput EXACTLY ${width} chars wide and EXACTLY ${height} lines. Do not add an outer border unless I asked for one.`;
   }
 
   const res = await fetch(OPENROUTER_URL, {
@@ -119,48 +158,32 @@ function postProcess(raw: string, width: number, height: number): string {
 function expandLine(line: string, width: number): string {
   const trimmed = line.trimEnd();
   if (trimmed.length === 0) return ' '.repeat(width);
+  if (trimmed.length === width) return trimmed;
 
   const firstChar = trimmed[0];
   const lastChar = trimmed[trimmed.length - 1];
+  const firstIsBorder = isBoxVertical(firstChar) || isBoxCorner(firstChar);
+  const lastIsBorder = isBoxVertical(lastChar) || isBoxCorner(lastChar);
 
-  // Detect if inner content is mostly horizontal lines (separator/border line)
-  const inner = trimmed.length > 2 ? trimmed.slice(1, -1) : '';
-  let hCount = 0;
-  for (const c of inner) { if (isBoxHorizontal(c)) hCount++; }
-  const isSeparator = inner.length > 0 && hCount / inner.length > 0.6;
-
-  // Too long — trim while preserving closing border char
+  // Too long — trim, preserving closing border if both ends are borders
   if (trimmed.length > width) {
-    if ((isBoxVertical(lastChar) || isBoxCorner(lastChar)) && (isBoxVertical(firstChar) || isBoxCorner(firstChar))) {
+    if (firstIsBorder && lastIsBorder) {
       return trimmed.slice(0, width - 1) + lastChar;
     }
     return trimmed.slice(0, width);
   }
 
-  // Exact width — fix missing closing border
-  if (trimmed.length === width) {
-    if (isBoxCorner(firstChar) && isBoxHorizontal(lastChar)) {
-      return trimmed.slice(0, -1) + (firstChar === '┌' || firstChar === '+' ? '┐' : '┘');
-    }
-    return trimmed;
-  }
-
-  // Shorter than width — needs expansion
+  // Shorter than width — stretch bordered lines, pad everything else with spaces
   const gap = width - trimmed.length;
-  const fillChar = isSeparator ? '─' : ' ';
 
-  // Line ends with border char — stretch to fill width
-  if (isBoxVertical(lastChar) || isBoxCorner(lastChar)) {
-    const before = trimmed.slice(0, -1);
-    return before + fillChar.repeat(gap) + lastChar;
+  if (firstIsBorder && lastIsBorder) {
+    // Detect fill character: ─ for separator/border lines, space for content lines
+    const inner = trimmed.length > 2 ? trimmed.slice(1, -1) : '';
+    let hCount = 0;
+    for (const c of inner) { if (isBoxHorizontal(c)) hCount++; }
+    const fillChar = inner.length > 0 && hCount / inner.length > 0.6 ? '─' : ' ';
+    return trimmed.slice(0, -1) + fillChar.repeat(gap) + lastChar;
   }
 
-  // Unclosed border: ┌───... or │───... without closing char
-  if (isBoxHorizontal(lastChar) && (isBoxCorner(firstChar) || isBoxVertical(firstChar))) {
-    const closeChar = isBoxCorner(firstChar) ? (firstChar === '┌' || firstChar === '+' ? '┐' : '┘') : '│';
-    return trimmed + '─'.repeat(gap - 1) + closeChar;
-  }
-
-  // Default: pad with spaces
   return trimmed + ' '.repeat(gap);
 }
