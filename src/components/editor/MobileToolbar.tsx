@@ -64,7 +64,7 @@ const barRow1: ToolEntry[] = [
   { id: 'line', label: 'Line', icon: <Minus className={IC_SM} /> },
   { id: 'arrow', label: 'Arrow', icon: <ArrowRight className={IC_SM} /> },
   { id: 'pencil', label: 'Pencil', icon: <Pencil className={IC_SM} /> },
-  { id: 'eraser', label: 'Eraser', icon: <Eraser className={IC_SM} /> },
+  { id: 'brush', label: 'Brush', icon: <Paintbrush className={IC_SM} /> },
 ];
 
 // Row 2: UI components + More
