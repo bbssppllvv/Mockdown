@@ -184,6 +184,19 @@ export function MobileToolbar() {
         )}
       </div>
 
+      {/* ── Floating top-right: Copy Markdown ── */}
+      <button
+        onClick={async () => {
+          await copyAsMarkdown(grid);
+          toast.success('Copied!');
+        }}
+        className="fixed right-3 z-50 md:hidden flex items-center gap-1.5 bg-[#2563eb] text-white rounded-xl px-3 py-1.5 shadow-sm text-xs font-semibold active:bg-[#2563eb]/80"
+        style={{ top: 'calc(12px + env(safe-area-inset-top, 0px))' }}
+      >
+        <Copy className={IC_XS} />
+        Copy
+      </button>
+
       {/* ── Bottom sheet backdrop + panel ── */}
       {sheetOpen && (
         <>
@@ -300,18 +313,6 @@ export function MobileToolbar() {
 
           {/* Separator */}
           <div className="w-px h-7 bg-border/60 mx-0.5 shrink-0" />
-
-          {/* Copy Markdown */}
-          <button
-            onClick={async () => {
-              await copyAsMarkdown(grid);
-              toast.success('Copied!');
-            }}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1 text-foreground/50 active:text-[#2563eb]"
-          >
-            <Copy className={IC} />
-            <span className="text-[9px] font-medium leading-none">Copy</span>
-          </button>
 
           {/* More */}
           <button
