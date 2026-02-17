@@ -92,7 +92,7 @@ function WireInput({ placeholder }: { placeholder: string }) {
   return (
     <div
       className="border-b border-dashed px-1 py-1 text-sm"
-      style={{ borderColor: B, color: `${B}99` }}
+      style={{ borderColor: B, color: B }}
     >
       {placeholder}
     </div>
@@ -111,7 +111,7 @@ function WireNav() {
           Mockdown
         </Link>
         <div className="flex items-center gap-6">
-          <span className="text-sm hidden sm:inline" style={{ color: `${B}88` }}>
+          <span className="text-sm hidden sm:inline" style={{ color: B }}>
             About
           </span>
           <WireButton href="/">Open Editor</WireButton>
@@ -160,7 +160,7 @@ function WireTable({
             <div
               key={ci}
               className={`px-3 py-2 text-sm ${ci > 0 ? 'border-l' : ''}`}
-              style={{ color: `${B}cc`, borderColor: B }}
+              style={{ color: B, borderColor: B }}
             >
               {cell}
             </div>
@@ -178,8 +178,8 @@ export default function AboutPage() {
     <main
       className="min-h-screen font-mono"
       style={{
-        backgroundColor: '#fafbff',
-        color: '#1a1a2e',
+        backgroundColor: '#ffffff',
+        color: B,
       }}
     >
       <WireNav />
@@ -194,7 +194,7 @@ export default function AboutPage() {
             >
               Wireframes that live in plain text.
             </h1>
-            <p className="text-sm leading-relaxed max-w-lg" style={{ color: `${B}99` }}>
+            <p className="text-sm leading-relaxed max-w-lg" style={{ color: B }}>
               20+ UI components. Drag, drop, export as Markdown.
               Open your browser — that&apos;s the install.
             </p>
@@ -208,7 +208,7 @@ export default function AboutPage() {
         {/* ── Why: Split panel ── */}
         <div className="grid md:grid-cols-2 gap-px">
           <WireCard title="Why plain text?">
-            <div className="space-y-3 text-sm leading-relaxed" style={{ color: `${B}bb` }}>
+            <div className="space-y-3 text-sm leading-relaxed" style={{ color: B }}>
               <p>
                 Paste your mockup in a GitHub issue. Drop it in Slack.
                 Commit it with your code.
@@ -221,7 +221,7 @@ export default function AboutPage() {
           </WireCard>
 
           <WireCard title="Why lo-fi?">
-            <div className="space-y-3 text-sm leading-relaxed" style={{ color: `${B}bb` }}>
+            <div className="space-y-3 text-sm leading-relaxed" style={{ color: B }}>
               <p>
                 Text wireframes keep the conversation on structure, not color.
               </p>
@@ -236,7 +236,7 @@ export default function AboutPage() {
         {/* ── Components showcase ── */}
         <section id="components">
           <WireCard title="Component Library — 20+ built-in elements">
-            <p className="text-xs mb-6" style={{ color: `${B}77` }}>
+            <p className="text-xs mb-6" style={{ color: B }}>
               Every component below is built into Mockdown. Drag to place, double-click to edit.
             </p>
 
@@ -245,34 +245,34 @@ export default function AboutPage() {
               <div>
                 <div
                   className="text-xs font-bold uppercase tracking-widest mb-3"
-                  style={{ color: `${B}66` }}
+                  style={{ color: B }}
                 >
                   Form controls
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <WireBox className="p-3 text-center">
-                    <div className="text-xs mb-2" style={{ color: `${B}88` }}>Button</div>
+                    <div className="text-xs mb-2" style={{ color: B }}>Button</div>
                     <WireButton>Submit</WireButton>
                   </WireBox>
                   <WireBox className="p-3">
-                    <div className="text-xs mb-2" style={{ color: `${B}88` }}>Input</div>
+                    <div className="text-xs mb-2" style={{ color: B }}>Input</div>
                     <WireInput placeholder="Enter text..." />
                   </WireBox>
                   <WireBox className="p-3">
-                    <div className="text-xs mb-2" style={{ color: `${B}88` }}>Dropdown</div>
+                    <div className="text-xs mb-2" style={{ color: B }}>Dropdown</div>
                     <div
                       className="border px-2 py-1 text-sm flex justify-between"
-                      style={{ borderColor: B, color: `${B}bb` }}
+                      style={{ borderColor: B, color: B }}
                     >
                       <span>Select</span>
                       <span>▾</span>
                     </div>
                   </WireBox>
                   <WireBox className="p-3">
-                    <div className="text-xs mb-2" style={{ color: `${B}88` }}>Search</div>
+                    <div className="text-xs mb-2" style={{ color: B }}>Search</div>
                     <div
                       className="border px-2 py-1 text-sm"
-                      style={{ borderColor: B, color: `${B}99` }}
+                      style={{ borderColor: B, color: B }}
                     >
                       / Search...
                     </div>
@@ -283,28 +283,28 @@ export default function AboutPage() {
               {/* Toggles row */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <WireBox className="p-3">
-                  <div className="text-xs mb-2" style={{ color: `${B}88` }}>Checkbox</div>
-                  <div className="space-y-1 text-sm" style={{ color: `${B}bb` }}>
+                  <div className="text-xs mb-2" style={{ color: B }}>Checkbox</div>
+                  <div className="space-y-1 text-sm" style={{ color: B }}>
                     <div>☑ Enabled</div>
                     <div>☐ Disabled</div>
                   </div>
                 </WireBox>
                 <WireBox className="p-3">
-                  <div className="text-xs mb-2" style={{ color: `${B}88` }}>Radio</div>
-                  <div className="space-y-1 text-sm" style={{ color: `${B}bb` }}>
+                  <div className="text-xs mb-2" style={{ color: B }}>Radio</div>
+                  <div className="space-y-1 text-sm" style={{ color: B }}>
                     <div>● Option A</div>
                     <div>○ Option B</div>
                   </div>
                 </WireBox>
                 <WireBox className="p-3">
-                  <div className="text-xs mb-2" style={{ color: `${B}88` }}>Toggle</div>
-                  <div className="text-sm" style={{ color: `${B}bb` }}>
+                  <div className="text-xs mb-2" style={{ color: B }}>Toggle</div>
+                  <div className="text-sm" style={{ color: B }}>
                     [━●] On
                   </div>
                 </WireBox>
                 <WireBox className="p-3">
-                  <div className="text-xs mb-2" style={{ color: `${B}88` }}>Progress</div>
-                  <div className="text-sm" style={{ color: `${B}bb` }}>
+                  <div className="text-xs mb-2" style={{ color: B }}>Progress</div>
+                  <div className="text-sm" style={{ color: B }}>
                     [████░░░░] 50%
                   </div>
                 </WireBox>
@@ -314,14 +314,14 @@ export default function AboutPage() {
               <div>
                 <div
                   className="text-xs font-bold uppercase tracking-widest mb-3"
-                  style={{ color: `${B}66` }}
+                  style={{ color: B }}
                 >
                   Navigation
                 </div>
                 <div className="space-y-3">
                   <WireBox className="p-3">
-                    <div className="text-xs mb-2" style={{ color: `${B}88` }}>Nav Bar</div>
-                    <div className="flex items-center gap-4 text-sm" style={{ color: `${B}bb` }}>
+                    <div className="text-xs mb-2" style={{ color: B }}>Nav Bar</div>
+                    <div className="flex items-center gap-4 text-sm" style={{ color: B }}>
                       <span className="font-bold" style={{ color: B }}>Logo</span>
                       <span>Link</span>
                       <span>Link</span>
@@ -334,8 +334,8 @@ export default function AboutPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <WireBox className="p-3">
-                      <div className="text-xs mb-2" style={{ color: `${B}88` }}>Tabs</div>
-                      <div className="flex gap-2 text-sm" style={{ color: `${B}bb` }}>
+                      <div className="text-xs mb-2" style={{ color: B }}>Tabs</div>
+                      <div className="flex gap-2 text-sm" style={{ color: B }}>
                         <span
                           className="border-b-2 pb-0.5"
                           style={{ borderColor: B, color: B }}
@@ -347,14 +347,14 @@ export default function AboutPage() {
                       </div>
                     </WireBox>
                     <WireBox className="p-3">
-                      <div className="text-xs mb-2" style={{ color: `${B}88` }}>Breadcrumb</div>
-                      <div className="text-sm" style={{ color: `${B}bb` }}>
+                      <div className="text-xs mb-2" style={{ color: B }}>Breadcrumb</div>
+                      <div className="text-sm" style={{ color: B }}>
                         Home &gt; Docs &gt; About
                       </div>
                     </WireBox>
                     <WireBox className="p-3">
-                      <div className="text-xs mb-2" style={{ color: `${B}88` }}>Pagination</div>
-                      <div className="text-sm" style={{ color: `${B}bb` }}>
+                      <div className="text-xs mb-2" style={{ color: B }}>Pagination</div>
+                      <div className="text-sm" style={{ color: B }}>
                         &lt; 1 2 <span className="font-bold" style={{ color: B }}>[3]</span> 4 5 &gt;
                       </div>
                     </WireBox>
@@ -366,19 +366,19 @@ export default function AboutPage() {
               <div>
                 <div
                   className="text-xs font-bold uppercase tracking-widest mb-3"
-                  style={{ color: `${B}66` }}
+                  style={{ color: B }}
                 >
                   Containers
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <WireCard title="Card Title">
-                    <p className="text-sm" style={{ color: `${B}99` }}>
+                    <p className="text-sm" style={{ color: B }}>
                       Cards group related content with a header and body area.
                     </p>
                   </WireCard>
 
                   <WireCard title="Dialog                                              ×">
-                    <p className="text-sm mb-3" style={{ color: `${B}99` }}>
+                    <p className="text-sm mb-3" style={{ color: B }}>
                       Are you sure?
                     </p>
                     <div className="flex gap-2">
@@ -393,7 +393,7 @@ export default function AboutPage() {
               <div>
                 <div
                   className="text-xs font-bold uppercase tracking-widest mb-3"
-                  style={{ color: `${B}66` }}
+                  style={{ color: B }}
                 >
                   Data
                 </div>
@@ -408,7 +408,7 @@ export default function AboutPage() {
                 />
               </div>
 
-              <p className="text-xs" style={{ color: `${B}66` }}>
+              <p className="text-xs" style={{ color: B }}>
                 + lines, arrows, freehand pencil, brush, spray, boxes,
                 placeholders, split panels, text blocks, and lists.
               </p>
@@ -424,7 +424,7 @@ export default function AboutPage() {
               <h3 className="text-sm font-bold mb-1" style={{ color: B }}>
                 Pick a component
               </h3>
-              <p className="text-xs leading-relaxed" style={{ color: `${B}99` }}>
+              <p className="text-xs leading-relaxed" style={{ color: B }}>
                 Button, card, table, modal — click the toolbar, drag onto the canvas.
               </p>
             </WireBox>
@@ -433,7 +433,7 @@ export default function AboutPage() {
               <h3 className="text-sm font-bold mb-1" style={{ color: B }}>
                 Edit inline
               </h3>
-              <p className="text-xs leading-relaxed" style={{ color: `${B}99` }}>
+              <p className="text-xs leading-relaxed" style={{ color: B }}>
                 Double-click any text to rewrite it. Components resize to fit your content.
               </p>
             </WireBox>
@@ -442,7 +442,7 @@ export default function AboutPage() {
               <h3 className="text-sm font-bold mb-1" style={{ color: B }}>
                 Copy as Markdown
               </h3>
-              <p className="text-xs leading-relaxed" style={{ color: `${B}99` }}>
+              <p className="text-xs leading-relaxed" style={{ color: B }}>
                 One click. Paste into GitHub, Notion, Slack, or a code comment. Done.
               </p>
             </WireBox>
@@ -456,7 +456,7 @@ export default function AboutPage() {
               <h3 className="text-sm font-bold mb-1" style={{ color: B }}>
                 Developers
               </h3>
-              <p className="text-xs leading-relaxed" style={{ color: `${B}99` }}>
+              <p className="text-xs leading-relaxed" style={{ color: B }}>
                 Sketch a login form in a code comment before writing the first line of JSX.
               </p>
             </WireBox>
@@ -464,7 +464,7 @@ export default function AboutPage() {
               <h3 className="text-sm font-bold mb-1" style={{ color: B }}>
                 Product Managers
               </h3>
-              <p className="text-xs leading-relaxed" style={{ color: `${B}99` }}>
+              <p className="text-xs leading-relaxed" style={{ color: B }}>
                 Show a layout idea in a Jira ticket — not next sprint, now.
               </p>
             </WireBox>
@@ -472,7 +472,7 @@ export default function AboutPage() {
               <h3 className="text-sm font-bold mb-1" style={{ color: B }}>
                 Designers
               </h3>
-              <p className="text-xs leading-relaxed" style={{ color: `${B}99` }}>
+              <p className="text-xs leading-relaxed" style={{ color: B }}>
                 Explore 5 layout options in 10 minutes before opening Figma.
               </p>
             </WireBox>
@@ -480,7 +480,7 @@ export default function AboutPage() {
               <h3 className="text-sm font-bold mb-1" style={{ color: B }}>
                 Technical Writers
               </h3>
-              <p className="text-xs leading-relaxed" style={{ color: `${B}99` }}>
+              <p className="text-xs leading-relaxed" style={{ color: B }}>
                 Embed UI diagrams in docs that survive every format conversion.
               </p>
             </WireBox>
@@ -490,7 +490,7 @@ export default function AboutPage() {
         {/* ── CTA ── */}
         <WireCard title="Get Started">
           <div className="text-center py-4 space-y-4">
-            <p className="text-sm" style={{ color: `${B}bb` }}>
+            <p className="text-sm" style={{ color: B }}>
               Free. No account. No install. Works offline.
             </p>
             <div>
@@ -508,8 +508,8 @@ export default function AboutPage() {
 
       {/* ── Footer ── */}
       <div className="border-t py-6 px-6 text-center" style={{ borderColor: B }}>
-        <p className="text-xs" style={{ color: `${B}66` }}>
-          <Link href="/" className="hover:underline" style={{ color: `${B}88` }}>
+        <p className="text-xs" style={{ color: B }}>
+          <Link href="/" className="hover:underline" style={{ color: B }}>
             Mockdown
           </Link>
           {' · '}
