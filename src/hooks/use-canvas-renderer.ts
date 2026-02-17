@@ -137,15 +137,23 @@ export function useCanvasRenderer() {
   useEffect(() => {
     const computeScale = () => {
       const s = useEditorStore.getState();
-      const gridPixelWidth = s.document.gridCols * cellSizeRef.current.width;
+      const cs = cellSizeRef.current;
+      const gridPixelWidth = s.document.gridCols * cs.width;
+      const gridPixelHeight = s.document.gridRows * cs.height;
       // Account for sidebar (192px on md+, 0 on mobile since it's an overlay)
       const isMobile = window.innerWidth < 768;
       const availableWidth = isMobile ? window.innerWidth - 16 : window.innerWidth - 192;
-      if (availableWidth < gridPixelWidth && gridPixelWidth > 0) {
-        setScale(Math.max(0.25, availableWidth / gridPixelWidth));
-      } else {
-        setScale(1);
-      }
+      // On mobile, subtract bottom toolbar (52px) + safe area estimate (~34px)
+      const availableHeight = isMobile
+        ? window.innerHeight - 86
+        : window.innerHeight;
+      const scaleX = availableWidth < gridPixelWidth && gridPixelWidth > 0
+        ? availableWidth / gridPixelWidth
+        : 1;
+      const scaleY = isMobile && availableHeight < gridPixelHeight && gridPixelHeight > 0
+        ? availableHeight / gridPixelHeight
+        : 1;
+      setScale(Math.max(0.25, Math.min(scaleX, scaleY)));
     };
     computeScale();
     window.addEventListener('resize', computeScale);

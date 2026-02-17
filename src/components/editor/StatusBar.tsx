@@ -12,7 +12,7 @@ export function StatusBar() {
   const toolLabel = toolMap[activeTool]?.label ?? activeTool;
 
   return (
-    <div className="flex items-center gap-4 px-4 py-1.5 border-t border-border/60 text-xs text-foreground/40 font-mono select-none">
+    <div className="hidden md:flex items-center gap-4 px-4 py-1.5 border-t border-border/60 text-xs text-foreground/40 font-mono select-none">
       <span className="uppercase font-bold px-2 py-0.5 rounded-lg text-[10px] tracking-wider bg-[#2563eb] text-white">
         {toolLabel}
       </span>
