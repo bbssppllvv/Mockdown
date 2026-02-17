@@ -18,53 +18,6 @@ export const metadata: Metadata = {
 
 const B = '#2979FF'; // brand blue
 
-/* ── scattered decorative wireframe fragments ── */
-
-const fragments = [
-  // top area
-  { top: '3%', left: '2%', rotate: -4, opacity: 0.13, content: '┌──────────┐\n│          │\n│  Text    │\n│          │\n└──────────┘' },
-  { top: '1%', right: '3%', rotate: 3, opacity: 0.10, content: '[ Submit ]  [ Cancel ]' },
-  { top: '8%', right: '8%', rotate: -2, opacity: 0.09, content: '☑ Option A\n☐ Option B\n☐ Option C' },
-  { top: '5%', left: '55%', rotate: 5, opacity: 0.08, content: '[████░░░░░░] 40%' },
-  // mid-left scattered
-  { top: '22%', left: '-1%', rotate: -6, opacity: 0.10, content: '┌────┬────┐\n│ A  │ B  │\n├────┼────┤\n│    │    │\n└────┴────┘' },
-  { top: '38%', left: '1%', rotate: 3, opacity: 0.07, content: '[/ Search...    ]' },
-  { top: '50%', left: '-2%', rotate: -3, opacity: 0.11, content: '● Yes  ○ No' },
-  // mid-right scattered
-  { top: '30%', right: '1%', rotate: 4, opacity: 0.09, content: '[▾ Dropdown    ]' },
-  { top: '45%', right: '-1%', rotate: -5, opacity: 0.10, content: '┌──────────────┐\n│ Card         │\n├──────────────┤\n│              │\n│              │\n└──────────────┘' },
-  { top: '55%', right: '3%', rotate: 2, opacity: 0.07, content: 'Home > Section > Page' },
-  // lower area
-  { top: '65%', left: '0%', rotate: 5, opacity: 0.08, content: '[━●] Toggle on\n[●━] Toggle off' },
-  { top: '72%', right: '2%', rotate: -3, opacity: 0.09, content: '< 1 2 [3] 4 5 >' },
-  { top: '80%', left: '3%', rotate: -4, opacity: 0.10, content: '┌────────────────┐\n│ Dialog       × │\n├────────────────┤\n│ Content        │\n│  [ OK ]        │\n└────────────────┘' },
-  { top: '85%', right: '5%', rotate: 6, opacity: 0.07, content: '[______________]' },
-  { top: '92%', left: '10%', rotate: -2, opacity: 0.08, content: '• Item 1\n• Item 2\n• Item 3' },
-  { top: '90%', right: '15%', rotate: 3, opacity: 0.06, content: 'Logo  Link  Link  [ Action ]' },
-] as const;
-
-function ScatteredFragments() {
-  return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none select-none" aria-hidden="true">
-      {fragments.map((f, i) => (
-        <pre
-          key={i}
-          className="absolute whitespace-pre text-[11px] leading-tight font-mono hidden lg:block"
-          style={{
-            top: f.top,
-            left: 'left' in f ? f.left : undefined,
-            right: 'right' in f ? f.right : undefined,
-            transform: `rotate(${f.rotate}deg)`,
-            opacity: f.opacity,
-            color: B,
-          }}
-        >
-          {f.content}
-        </pre>
-      ))}
-    </div>
-  );
-}
 
 function WireCard({
   title,
@@ -234,10 +187,9 @@ export default function AboutPage() {
         color: '#1a1a2e',
       }}
     >
-      <ScatteredFragments />
       <WireNav />
 
-      <div className="max-w-4xl mx-auto px-6 py-12 space-y-10 relative z-10">
+      <div className="max-w-4xl mx-auto px-6 py-12 space-y-10">
         {/* ── Hero: Dialog wireframe ── */}
         <WireCard title="Mockdown">
           <div className="space-y-4">
