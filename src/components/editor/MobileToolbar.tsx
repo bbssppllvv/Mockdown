@@ -62,8 +62,8 @@ const barTools: ToolEntry[] = [
   { id: 'text', label: 'Text', icon: <Type className={IC} /> },
   { id: 'box', label: 'Box', icon: <Square className={IC} /> },
   { id: 'pencil', label: 'Pencil', icon: <Pencil className={IC} /> },
-  { id: 'eraser', label: 'Eraser', icon: <Eraser className={IC} /> },
-  { id: 'generate', label: 'AI', icon: <Wand2 className={IC} /> },
+  { id: 'line', label: 'Line', icon: <Minus className={IC} /> },
+  { id: 'button', label: 'Button', icon: <RectangleHorizontal className={IC} /> },
 ];
 
 // Sheet tools grouped
@@ -95,6 +95,7 @@ const sheetUIElements: ToolEntry[] = [
 ];
 
 const sheetDraw: ToolEntry[] = [
+  { id: 'eraser', label: 'Eraser', icon: <Eraser className={IC_SM} /> },
   { id: 'brush', label: 'Brush', icon: <Paintbrush className={IC_SM} /> },
   { id: 'spray', label: 'Spray', icon: <SprayCan className={IC_SM} /> },
   { id: 'shade', label: 'Shade', icon: <Contrast className={IC_SM} /> },
@@ -184,18 +185,33 @@ export function MobileToolbar() {
         )}
       </div>
 
-      {/* ── Floating top-right: Copy Markdown ── */}
-      <button
-        onClick={async () => {
-          await copyAsMarkdown(grid);
-          toast.success('Copied!');
-        }}
-        className="fixed right-3 z-50 md:hidden flex items-center gap-1.5 bg-[#2563eb] text-white rounded-xl px-3 py-1.5 shadow-sm text-xs font-semibold active:bg-[#2563eb]/80"
+      {/* ── Floating top-right: AI + Copy ── */}
+      <div
+        className="fixed right-3 z-50 md:hidden flex items-center gap-1.5"
         style={{ top: 'calc(12px + env(safe-area-inset-top, 0px))' }}
       >
-        <Copy className={IC_XS} />
-        Copy
-      </button>
+        <button
+          onClick={() => setActiveTool('generate')}
+          className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 shadow-sm text-xs font-semibold transition-colors ${
+            activeTool === 'generate'
+              ? 'bg-[#2563eb] text-white'
+              : 'bg-background/90 backdrop-blur-sm border border-border/60 text-foreground/70 active:bg-foreground/10'
+          }`}
+        >
+          <Wand2 className={IC_XS} />
+          AI
+        </button>
+        <button
+          onClick={async () => {
+            await copyAsMarkdown(grid);
+            toast.success('Copied!');
+          }}
+          className="flex items-center gap-1.5 bg-[#2563eb] text-white rounded-xl px-3 py-1.5 shadow-sm text-xs font-semibold active:bg-[#2563eb]/80"
+        >
+          <Copy className={IC_XS} />
+          Copy
+        </button>
+      </div>
 
       {/* ── Bottom sheet backdrop + panel ── */}
       {sheetOpen && (
