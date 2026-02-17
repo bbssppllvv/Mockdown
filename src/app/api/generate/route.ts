@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { streamText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 
-const MODEL = 'openai/gpt-4.1';
+const MODEL = 'google/gemini-2.5-flash';
 
 const openrouter = createOpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
