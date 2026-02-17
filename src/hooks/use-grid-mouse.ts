@@ -247,8 +247,9 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
 
     if (s.isDrawing && s.drawStart && tool.onDrag) {
       s.setPreview(tool.onDrag(s.drawStart, pos, s.renderedGrid));
-    } else if (!s.isDrawing && tool.onDrag) {
-      // Ghost preview: show element at default size under cursor
+    } else if (!s.isDrawing && tool.onDrag && tool.onClick) {
+      // Ghost preview: show widget at default size under cursor (only for click-placeable tools)
+      // Drag-only tools (line, arrow) don't show ghost preview at rest
       s.setPreview(tool.onDrag(pos, pos, s.renderedGrid));
     } else if (!s.isDrawing && s.preview) {
       s.setPreview(null);
@@ -372,15 +373,13 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
             char: c.char,
           }));
           s.pushUndo();
-          const newId = s.addNode({
+          s.addNode({
             type: 'stroke',
             name: 'Stroke',
             bounds: { x: minC, y: minR, width: maxC - minC + 1, height: maxR - minR + 1 },
             cells: relativeCells,
           });
-          // Auto-select the newly created node and switch to select tool
-          s.setActiveTool('select');
-          s.setSelection([newId]);
+          // Keep tool active — user can keep drawing (Figma-style)
         }
         s.setIsDrawing(false);
         s.setDrawStart(null);
@@ -412,36 +411,30 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
         const result = tool.onClick(pos, s.renderedGrid);
         if (result && result.kind === 'create') {
           const newId = s.addNode(result.node);
+          s.setSelection([newId]);
           if (tool.needsTextInput) {
-            s.setActiveTool('select');
-            s.setSelection([newId]);
             const key = getPrimaryTextKey(result.node.type);
             if (key) {
               const text = getNodeText(result.node as any, key);
               s.startEditing(newId, key, text?.length ?? 0);
             }
-          } else {
-            s.setActiveTool('select');
-            s.setSelection([newId]);
           }
+          // Keep tool active — user can keep placing (Figma-style)
         }
       } else if (tool.onDragEnd) {
         s.pushUndo();
         const result = tool.onDragEnd(s.drawStart, pos, s.renderedGrid);
         if (result && result.kind === 'create') {
           const newId = s.addNode(result.node);
+          s.setSelection([newId]);
           if (tool.needsTextInput) {
-            s.setActiveTool('select');
-            s.setSelection([newId]);
             const key = getPrimaryTextKey(result.node.type);
             if (key) {
               const text = getNodeText(result.node as any, key);
               s.startEditing(newId, key, text?.length ?? 0);
             }
-          } else {
-            s.setActiveTool('select');
-            s.setSelection([newId]);
           }
+          // Keep tool active — user can keep placing (Figma-style)
         } else if (result && result.kind === 'delete') {
           s.removeNodes(result.nodeIds);
         }
