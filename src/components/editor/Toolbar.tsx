@@ -116,7 +116,7 @@ const drawGroup: ToolGroup = {
   ],
 };
 
-export function Toolbar() {
+export function Toolbar({ onToolSelect }: { onToolSelect?: () => void } = {}) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const activeTool = useEditorStore((s) => s.activeTool);
   const setActiveTool = useEditorStore((s) => s.setActiveTool);
@@ -152,7 +152,7 @@ export function Toolbar() {
     return (
       <button
         key={t.id}
-        onClick={() => setActiveTool(t.id)}
+        onClick={() => { setActiveTool(t.id); onToolSelect?.(); }}
         className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors duration-100 ${
           isActive
             ? 'bg-[#2563eb] text-white'
