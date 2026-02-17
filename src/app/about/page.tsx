@@ -4,12 +4,12 @@ import Link from 'next/link';
 export const metadata: Metadata = {
   title: 'About Mockdown — Free ASCII Wireframe Editor',
   description:
-    'Mockdown is a free, browser-based ASCII wireframe editor. 20+ drag-and-drop UI components — buttons, inputs, tables, modals, nav bars. Export as Markdown. No signup, works offline.',
+    'Mockdown is a free ASCII wireframe editor built for AI-assisted coding. Sketch UI with 20+ components, export as Markdown, paste into Claude Code or Cursor. AI reads wireframes faster than text descriptions.',
   alternates: { canonical: '/about' },
   openGraph: {
     title: 'About Mockdown — Free ASCII Wireframe Editor',
     description:
-      'ASCII wireframe editor in your browser. 20+ components, Markdown export, no signup. Sketch UI in plain text.',
+      'Sketch UI wireframes, export as Markdown, paste into AI coding tools. 20+ components, no signup.',
     url: '/about',
   },
 };
@@ -195,13 +195,35 @@ export default function AboutPage() {
               Wireframes that live in plain text.
             </h1>
             <p className="text-sm leading-relaxed max-w-lg" style={{ color: B }}>
-              20+ UI components. Drag, drop, export as Markdown.
-              Open your browser — that&apos;s the install.
+              Sketch a UI in minutes, export as Markdown, paste into
+              Claude Code or Cursor. AI reads a wireframe faster than
+              your explanation. 20+ components, zero setup.
             </p>
             <div className="flex gap-3 pt-2">
               <WireButton href="/">Open Editor</WireButton>
               <WireButton href="#components">See Components</WireButton>
             </div>
+          </div>
+        </WireCard>
+
+        {/* ── AI-first ── */}
+        <WireCard title="Built for AI-assisted coding">
+          <div className="space-y-3 text-sm leading-relaxed" style={{ color: B }}>
+            <p>
+              AI reads Markdown better than it reads your explanations.
+              Instead of describing a layout for ten minutes — &quot;put a
+              search bar on the left, a table below, pagination at the
+              bottom&quot; — you paste a wireframe. The AI builds it.
+            </p>
+            <p>
+              Mockdown exports clean Markdown that tools like Claude Code,
+              Cursor, and Copilot understand on the first try. One wireframe
+              replaces a page of instructions.
+            </p>
+            <p>
+              Sketch the screen in Mockdown. Copy. Paste into your AI
+              coding tool. Get working code back.
+            </p>
           </div>
         </WireCard>
 
