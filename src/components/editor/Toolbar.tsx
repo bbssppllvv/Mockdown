@@ -29,6 +29,8 @@ import {
   Contrast,
   PaintBucket,
   Eraser,
+  Droplets,
+  Sparkles,
   Loader,
   ChevronRight,
   MoreHorizontal,
@@ -106,9 +108,11 @@ const drawGroup: ToolGroup = {
     { id: 'eraser', label: 'Eraser', icon: <Eraser className={ICON} /> },
   ],
   secondary: [
-    { id: 'spray', label: 'Spray', icon: <SprayCan className={ICON} /> },
-    { id: 'shade', label: 'Shade', icon: <Contrast className={ICON} /> },
-    { id: 'fill',  label: 'Fill',  icon: <PaintBucket className={ICON} /> },
+    { id: 'spray',    label: 'Spray',   icon: <SprayCan className={ICON} /> },
+    { id: 'shade',    label: 'Shade',   icon: <Contrast className={ICON} /> },
+    { id: 'fill',     label: 'Fill',    icon: <PaintBucket className={ICON} /> },
+    { id: 'smudge',   label: 'Smudge',  icon: <Droplets className={ICON} /> },
+    { id: 'scatter',  label: 'Scatter', icon: <Sparkles className={ICON} /> },
   ],
 };
 

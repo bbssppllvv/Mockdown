@@ -19,6 +19,8 @@ import { sprayTool } from './spray';
 import { shadeTool } from './shade';
 import { fillTool } from './fill';
 import { eraserTool } from './eraser';
+import { smudgeTool } from './smudge';
+import { scatterTool } from './scatter';
 import { buttonTool } from './button';
 import { checkboxTool } from './checkbox';
 import { radioTool } from './radio';
@@ -53,6 +55,8 @@ const toolMap: Record<ToolId, DrawingTool> = {
   shade: shadeTool,
   fill: fillTool,
   eraser: eraserTool,
+  smudge: smudgeTool,
+  scatter: scatterTool,
   button: buttonTool,
   checkbox: checkboxTool,
   radio: radioTool,

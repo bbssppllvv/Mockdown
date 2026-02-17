@@ -66,6 +66,8 @@ export const TOOL_IDS = [
   'shade',
   'fill',
   'eraser',
+  'smudge',
+  'scatter',
   'button',
   'checkbox',
   'radio',
