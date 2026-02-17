@@ -25,16 +25,9 @@ export function useKeyboard() {
         return;
       }
 
-      // Paste
+      // Paste: handled exclusively by the 'paste' event listener below.
+      // Do NOT handle Cmd/Ctrl+V here to avoid double-paste.
       if ((e.metaKey || e.ctrlKey) && e.key === 'v') {
-        e.preventDefault();
-        navigator.clipboard.readText().then((text) => {
-          if (text) {
-            useEditorStore.getState().pasteText(text);
-          }
-        }).catch((err) => {
-          console.warn('[paste] clipboard read failed:', err);
-        });
         return;
       }
 
@@ -99,17 +92,6 @@ export function useKeyboard() {
 
       // Select tool: selection-based operations
       if (s.activeTool === 'select' && s.selectedIds.length > 0) {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          if (s.drillScope) {
-            // Exit drill scope and clear selection (children aren't selectable outside scope)
-            s.clearSelection();
-            s.setDrillScope(null);
-          } else {
-            s.clearSelection();
-          }
-          return;
-        }
         if (e.key === 'Delete' || e.key === 'Backspace') {
           e.preventDefault();
           s.pushUndo();
@@ -123,18 +105,31 @@ export function useKeyboard() {
         if (e.key === 'ArrowRight') { e.preventDefault(); s.pushUndo(); s.moveNodes([...s.selectedIds], 0, 1); return; }
       }
 
-      // Escape: cancel drawing or drill-out or reset to select tool
+      // ── Consolidated Escape: single priority chain ──────────────────
       if (e.key === 'Escape') {
-        if (s.drillScope) {
-          s.setDrillScope(null);
-          return;
-        }
+        e.preventDefault();
+        // 1. Cancel active drawing
         if (s.isDrawing) {
           s.setIsDrawing(false);
           s.setDrawStart(null);
           s.setPreview(null);
-        } else {
+          return;
+        }
+        // 2. Clear selection (and exit drill scope if inside one)
+        if (s.selectedIds.length > 0) {
+          s.clearSelection();
+          if (s.drillScope) s.setDrillScope(null);
+          return;
+        }
+        // 3. Exit drill scope
+        if (s.drillScope) {
+          s.setDrillScope(null);
+          return;
+        }
+        // 4. Reset tool to select
+        if (s.activeTool !== 'select') {
           s.setActiveTool('select');
+          return;
         }
         return;
       }

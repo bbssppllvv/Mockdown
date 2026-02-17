@@ -8,6 +8,10 @@ import { detectTextRegion, getPrimaryTextKey, getNodeText } from '@/lib/scene/te
 let lastContinuousPos: { row: number; col: number } | null = null;
 let continuousAccumulator: SparseCell[] = [];
 
+// 1.4: Track last hover cell to avoid redundant setHover calls
+let lastHoverRow = -1;
+let lastHoverCol = -1;
+
 export function pixelToGrid(
   x: number, y: number, cellWidth: number, cellHeight: number, maxRows: number, maxCols: number
 ): { row: number; col: number } {
@@ -16,17 +20,18 @@ export function pixelToGrid(
   return { row, col };
 }
 
-function getPos(e: React.MouseEvent<HTMLDivElement>, cellWidth: number, cellHeight: number) {
+// 3.3: getPos accounts for CSS scale transform
+function getPos(e: React.PointerEvent<HTMLDivElement>, cellWidth: number, cellHeight: number, scale: number) {
   const rect = e.currentTarget.getBoundingClientRect();
   const s = useSceneStore.getState();
   return pixelToGrid(
-    e.clientX - rect.left, e.clientY - rect.top,
+    (e.clientX - rect.left) / scale, (e.clientY - rect.top) / scale,
     cellWidth, cellHeight, s.document.gridRows, s.document.gridCols
   );
 }
 
-export function useGridMouse(cellWidth: number, cellHeight: number) {
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+export function useGridMouse(cellWidth: number, cellHeight: number, scale: number = 1) {
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const s = useSceneStore.getState();
 
     // If generate prompt is open, clicking on grid dismisses it
@@ -35,7 +40,7 @@ export function useGridMouse(cellWidth: number, cellHeight: number) {
       return;
     }
 
-    const pos = getPos(e, cellWidth, cellHeight);
+    const pos = getPos(e, cellWidth, cellHeight, scale);
 
     if (s.textInputActive) {
       s.stopEditing();
@@ -139,7 +144,7 @@ export function useGridMouse(cellWidth: number, cellHeight: number) {
       return;
     }
 
-    // All widget tools: start drag tracking (click vs drag determined on mouseUp)
+    // All widget tools: start drag tracking (click vs drag determined on pointerUp)
     if (tool.onDragEnd || tool.onClick) {
       s.setIsDrawing(true);
       s.setDrawStart(pos);
@@ -150,10 +155,16 @@ export function useGridMouse(cellWidth: number, cellHeight: number) {
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const s = useSceneStore.getState();
-    const pos = getPos(e, cellWidth, cellHeight);
-    s.setHover(pos.row, pos.col);
+    const pos = getPos(e, cellWidth, cellHeight, scale);
+
+    // 1.4: Only update hover when grid cell actually changes
+    if (pos.row !== lastHoverRow || pos.col !== lastHoverCol) {
+      lastHoverRow = pos.row;
+      lastHoverCol = pos.col;
+      s.setHover(pos.row, pos.col);
+    }
 
     // ── Select tool ──────────────────────────────────────────────────
     if (s.activeTool === 'select') {
@@ -205,7 +216,7 @@ export function useGridMouse(cellWidth: number, cellHeight: number) {
       }
 
       if (s.selectInteraction === 'selecting' && s.selectDragStart) {
-        // Marquee — don't set selection during drag, wait for mouseup
+        // Marquee — don't set selection during drag, wait for pointerup
         return;
       }
 
@@ -244,13 +255,13 @@ export function useGridMouse(cellWidth: number, cellHeight: number) {
     }
   };
 
-  const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     const s = useSceneStore.getState();
 
     // ── Select tool: finalize ────────────────────────────────────────
     if (s.activeTool === 'select') {
       if (s.selectInteraction === 'selecting' && s.selectDragStart) {
-        const pos = getPos(e, cellWidth, cellHeight);
+        const pos = getPos(e, cellWidth, cellHeight, scale);
         const dRow = Math.abs(pos.row - s.selectDragStart.row);
         const dCol = Math.abs(pos.col - s.selectDragStart.col);
 
@@ -284,7 +295,7 @@ export function useGridMouse(cellWidth: number, cellHeight: number) {
 
       // Finalize move
       if (s.selectInteraction === 'moving' && s.selectDragStart && s.originalBoundsMap) {
-        const pos = getPos(e, cellWidth, cellHeight);
+        const pos = getPos(e, cellWidth, cellHeight, scale);
         const dRow = pos.row - s.selectDragStart.row;
         const dCol = pos.col - s.selectDragStart.col;
         if (dRow !== 0 || dCol !== 0) {
@@ -299,7 +310,7 @@ export function useGridMouse(cellWidth: number, cellHeight: number) {
 
       // Finalize resize
       if (s.selectInteraction === 'resizing' && s.selectDragStart && s.originalBoundsMap && s.resizeCorner && s.selectedIds.length === 1) {
-        const pos = getPos(e, cellWidth, cellHeight);
+        const pos = getPos(e, cellWidth, cellHeight, scale);
         const nodeId = s.selectedIds[0];
         const origBounds = s.originalBoundsMap.get(nodeId);
         if (origBounds) {
@@ -321,7 +332,7 @@ export function useGridMouse(cellWidth: number, cellHeight: number) {
 
     // ── Drawing tools: finalize ──────────────────────────────────────
     if (s.isDrawing && s.drawStart) {
-      const pos = getPos(e, cellWidth, cellHeight);
+      const pos = getPos(e, cellWidth, cellHeight, scale);
       const tool = getTool(s.activeTool);
 
       // Continuous tools: create StrokeNode from accumulator (or delete for eraser)
@@ -442,13 +453,15 @@ export function useGridMouse(cellWidth: number, cellHeight: number) {
     }
   };
 
-  const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handlePointerLeave = (e: React.PointerEvent<HTMLDivElement>) => {
+    lastHoverRow = -1;
+    lastHoverCol = -1;
     useSceneStore.getState().setHover(-1, -1);
     useSceneStore.getState().setPreview(null);
-    handleMouseUp(e);
+    handlePointerUp(e);
   };
 
-  return { handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave };
+  return { handlePointerDown, handlePointerMove, handlePointerUp, handlePointerLeave };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

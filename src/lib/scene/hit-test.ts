@@ -146,7 +146,7 @@ export function hitTestCornerHandle(
   nodeId: NodeId,
   row: number,
   col: number,
-  tolerance: number = 1
+  tolerance: number = 2
 ): ResizeCorner | null {
   const node = doc.nodes.get(nodeId);
   if (!node) return null;

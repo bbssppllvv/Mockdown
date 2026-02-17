@@ -213,7 +213,7 @@ export function drawGrid(
 
     // Corner handles for all selection types
     {
-      const handleSize = 6;
+      const handleSize = 10;
       const half = handleSize / 2;
       ctx.fillStyle = `rgba(${a}, 0.9)`;
 

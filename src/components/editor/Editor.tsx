@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Menu } from 'lucide-react';
 import { Toolbar } from './Toolbar';
 import { Grid } from './Grid';
@@ -15,6 +15,25 @@ export function Editor() {
   const theme = useEditorStore((s) => s.theme);
   const toggleTheme = useEditorStore((s) => s.toggleTheme);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // 3.4: Swipe-to-close sidebar detection
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  const handleSidebarPointerDown = useCallback((e: React.PointerEvent) => {
+    swipeStartRef.current = { x: e.clientX, y: e.clientY };
+  }, []);
+
+  const handleSidebarPointerUp = useCallback((e: React.PointerEvent) => {
+    if (!swipeStartRef.current) return;
+    const dx = e.clientX - swipeStartRef.current.x;
+    const dy = Math.abs(e.clientY - swipeStartRef.current.y);
+    // Left swipe > 60px with more horizontal than vertical movement
+    if (dx < -60 && dy < Math.abs(dx)) {
+      setSidebarOpen(false);
+    }
+    swipeStartRef.current = null;
+  }, []);
 
   // Hydrate theme from localStorage on mount
   useEffect(() => {
@@ -50,10 +69,15 @@ export function Editor() {
         )}
 
         {/* Sidebar: always visible on md+, toggleable overlay on mobile */}
-        <div className={`
+        <div
+          ref={sidebarRef}
+          className={`
           fixed inset-y-0 left-0 z-50 h-full transition-transform duration-200 ease-out md:static md:translate-x-0
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        `}>
+        `}
+          onPointerDown={handleSidebarPointerDown}
+          onPointerUp={handleSidebarPointerUp}
+        >
           <Toolbar onToolSelect={() => setSidebarOpen(false)} />
         </div>
 

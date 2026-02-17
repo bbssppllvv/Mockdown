@@ -1,5 +1,8 @@
-export const GRID_COLS = 80;
-export const GRID_ROWS = 40;
+// 3.5: Detect mobile viewport at import time for default grid size
+const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768;
+
+export const GRID_COLS = IS_MOBILE ? 40 : 80;
+export const GRID_ROWS = IS_MOBILE ? 20 : 40;
 
 export const FONT_FAMILY = 'JetBrains Mono, monospace';
 export const FONT_SIZE = 14;

@@ -18,28 +18,31 @@ export function renderScene(doc: SceneDocument): CharGrid {
   const grid = new CharGrid(doc.gridRows, doc.gridCols);
   const nodes = getZOrderedNodes(doc);
 
+  // Track positions where box-drawing characters are placed
+  const boxCharPositions: { row: number; col: number }[] = [];
+
   // Phase 1: Stamp each visible node onto the grid (bottom → top z-order)
   for (const node of nodes) {
     if (!node.visible) continue;
     if (node.type === 'group') continue; // groups don't render directly
-    renderNode(grid, node);
+    renderNode(grid, node, boxCharPositions);
   }
 
-  // Phase 2: Junction resolution for box-drawing characters
-  resolveJunctions(grid);
+  // Phase 2: Junction resolution - only for tracked box-char positions
+  resolveJunctions(grid, boxCharPositions);
 
   return grid;
 }
 
 // ── Type dispatcher ──────────────────────────────────────────────────────────
 
-function renderNode(grid: CharGrid, node: SceneNode): void {
+function renderNode(grid: CharGrid, node: SceneNode, boxPositions: { row: number; col: number }[]): void {
   switch (node.type) {
-    case 'box': return renderBox(grid, node);
-    case 'card': return renderCard(grid, node);
-    case 'table': return renderTable(grid, node);
-    case 'hsplit': return renderHSplit(grid, node);
-    case 'placeholder': return renderPlaceholder(grid, node);
+    case 'box': return renderBox(grid, node, boxPositions);
+    case 'card': return renderCard(grid, node, boxPositions);
+    case 'table': return renderTable(grid, node, boxPositions);
+    case 'hsplit': return renderHSplit(grid, node, boxPositions);
+    case 'placeholder': return renderPlaceholder(grid, node, boxPositions);
     case 'button': return renderButton(grid, node);
     case 'checkbox': return renderCheckbox(grid, node);
     case 'radio': return renderRadio(grid, node);
@@ -48,44 +51,47 @@ function renderNode(grid: CharGrid, node: SceneNode): void {
     case 'tabs': return renderTabs(grid, node);
     case 'nav': return renderNav(grid, node);
     case 'list': return renderList(grid, node);
-    case 'modal': return renderModal(grid, node);
+    case 'modal': return renderModal(grid, node, boxPositions);
     case 'search': return renderSearch(grid, node);
     case 'toggle': return renderToggle(grid, node);
     case 'progress': return renderProgress(grid, node);
     case 'breadcrumb': return renderBreadcrumb(grid, node);
     case 'pagination': return renderPagination(grid, node);
-    case 'line': return renderLine(grid, node);
-    case 'arrow': return renderArrow(grid, node);
+    case 'line': return renderLine(grid, node, boxPositions);
+    case 'arrow': return renderArrow(grid, node, boxPositions);
     case 'text': return renderText(grid, node);
-    case 'stroke': return renderStroke(grid, node);
+    case 'stroke': return renderStroke(grid, node, boxPositions);
     case 'group': return; // handled by recursion in getZOrderedNodes
   }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function set(grid: CharGrid, row: number, col: number, char: string): void {
+function set(grid: CharGrid, row: number, col: number, char: string, boxPositions?: { row: number; col: number }[]): void {
   if (row >= 0 && row < grid.rows && col >= 0 && col < grid.cols) {
     grid.setChar(row, col, char);
+    if (boxPositions && isAnyBoxChar(char)) {
+      boxPositions.push({ row, col });
+    }
   }
 }
 
 // ── Box ──────────────────────────────────────────────────────────────────────
 
-function renderBox(grid: CharGrid, node: BoxNode): void {
+function renderBox(grid: CharGrid, node: BoxNode, bp: { row: number; col: number }[]): void {
   const { x, y, width, height } = node.bounds;
   if (height < 2 || width < 3) return;
   const maxR = y + height - 1;
   const maxC = x + width - 1;
 
   for (let c = x; c <= maxC; c++) {
-    if (c === x) { set(grid, y, c, BOX.TL); set(grid, maxR, c, BOX.BL); }
-    else if (c === maxC) { set(grid, y, c, BOX.TR); set(grid, maxR, c, BOX.BR); }
-    else { set(grid, y, c, BOX.H); set(grid, maxR, c, BOX.H); }
+    if (c === x) { set(grid, y, c, BOX.TL, bp); set(grid, maxR, c, BOX.BL, bp); }
+    else if (c === maxC) { set(grid, y, c, BOX.TR, bp); set(grid, maxR, c, BOX.BR, bp); }
+    else { set(grid, y, c, BOX.H, bp); set(grid, maxR, c, BOX.H, bp); }
   }
   for (let r = y + 1; r < maxR; r++) {
-    set(grid, r, x, BOX.V);
-    set(grid, r, maxC, BOX.V);
+    set(grid, r, x, BOX.V, bp);
+    set(grid, r, maxC, BOX.V, bp);
     for (let c = x + 1; c < maxC; c++) {
       set(grid, r, c, ' ');
     }
@@ -94,7 +100,7 @@ function renderBox(grid: CharGrid, node: BoxNode): void {
 
 // ── Card ─────────────────────────────────────────────────────────────────────
 
-function renderCard(grid: CharGrid, node: CardNode): void {
+function renderCard(grid: CharGrid, node: CardNode, bp: { row: number; col: number }[]): void {
   const { x, y, width, height } = node.bounds;
   if (height < 3 || width < 6) return;
   const maxR = y + height - 1;
@@ -112,19 +118,19 @@ function renderCard(grid: CharGrid, node: CardNode): void {
       const isRight = c === maxC;
 
       if (isTop) {
-        if (isLeft) set(grid, r, c, BOX.TL);
-        else if (isRight) set(grid, r, c, BOX.TR);
-        else set(grid, r, c, BOX.H);
+        if (isLeft) set(grid, r, c, BOX.TL, bp);
+        else if (isRight) set(grid, r, c, BOX.TR, bp);
+        else set(grid, r, c, BOX.H, bp);
       } else if (isBot) {
-        if (isLeft) set(grid, r, c, BOX.BL);
-        else if (isRight) set(grid, r, c, BOX.BR);
-        else set(grid, r, c, BOX.H);
+        if (isLeft) set(grid, r, c, BOX.BL, bp);
+        else if (isRight) set(grid, r, c, BOX.BR, bp);
+        else set(grid, r, c, BOX.H, bp);
       } else if (isDiv) {
-        if (isLeft) set(grid, r, c, BOX.T_RIGHT);
-        else if (isRight) set(grid, r, c, BOX.T_LEFT);
-        else set(grid, r, c, BOX.H);
+        if (isLeft) set(grid, r, c, BOX.T_RIGHT, bp);
+        else if (isRight) set(grid, r, c, BOX.T_LEFT, bp);
+        else set(grid, r, c, BOX.H, bp);
       } else {
-        if (isLeft || isRight) set(grid, r, c, BOX.V);
+        if (isLeft || isRight) set(grid, r, c, BOX.V, bp);
         else set(grid, r, c, ' ');
       }
     }
@@ -141,7 +147,7 @@ function renderCard(grid: CharGrid, node: CardNode): void {
 
 // ── Table ────────────────────────────────────────────────────────────────────
 
-function renderTable(grid: CharGrid, node: TableNode): void {
+function renderTable(grid: CharGrid, node: TableNode, bp: { row: number; col: number }[]): void {
   const { x, y, width, height } = node.bounds;
   if (height < 3 || width < 8) return;
   const maxR = y + height - 1;
@@ -172,22 +178,22 @@ function renderTable(grid: CharGrid, node: TableNode): void {
       const isColBoundary = colPositions.includes(c) && !isLeft && !isRight;
 
       if (isTop) {
-        if (isLeft) set(grid, r, c, BOX.TL);
-        else if (isRight) set(grid, r, c, BOX.TR);
-        else if (isColBoundary) set(grid, r, c, BOX.T_DOWN);
-        else set(grid, r, c, BOX.H);
+        if (isLeft) set(grid, r, c, BOX.TL, bp);
+        else if (isRight) set(grid, r, c, BOX.TR, bp);
+        else if (isColBoundary) set(grid, r, c, BOX.T_DOWN, bp);
+        else set(grid, r, c, BOX.H, bp);
       } else if (isBot) {
-        if (isLeft) set(grid, r, c, BOX.BL);
-        else if (isRight) set(grid, r, c, BOX.BR);
-        else if (isColBoundary) set(grid, r, c, BOX.T_UP);
-        else set(grid, r, c, BOX.H);
+        if (isLeft) set(grid, r, c, BOX.BL, bp);
+        else if (isRight) set(grid, r, c, BOX.BR, bp);
+        else if (isColBoundary) set(grid, r, c, BOX.T_UP, bp);
+        else set(grid, r, c, BOX.H, bp);
       } else if (isSep) {
-        if (isLeft) set(grid, r, c, BOX.T_RIGHT);
-        else if (isRight) set(grid, r, c, BOX.T_LEFT);
-        else if (isColBoundary) set(grid, r, c, BOX.CROSS);
-        else set(grid, r, c, BOX.H);
+        if (isLeft) set(grid, r, c, BOX.T_RIGHT, bp);
+        else if (isRight) set(grid, r, c, BOX.T_LEFT, bp);
+        else if (isColBoundary) set(grid, r, c, BOX.CROSS, bp);
+        else set(grid, r, c, BOX.H, bp);
       } else {
-        if (isLeft || isRight || isColBoundary) set(grid, r, c, BOX.V);
+        if (isLeft || isRight || isColBoundary) set(grid, r, c, BOX.V, bp);
         else set(grid, r, c, ' ');
       }
     }
@@ -208,7 +214,7 @@ function renderTable(grid: CharGrid, node: TableNode): void {
 
 // ── HSplit ────────────────────────────────────────────────────────────────────
 
-function renderHSplit(grid: CharGrid, node: HSplitNode): void {
+function renderHSplit(grid: CharGrid, node: HSplitNode, bp: { row: number; col: number }[]): void {
   const { x, y, width, height } = node.bounds;
   if (height < 2 || width < 8) return;
   const maxR = y + height - 1;
@@ -225,17 +231,17 @@ function renderHSplit(grid: CharGrid, node: HSplitNode): void {
       const isDiv = c === divC;
 
       if (isTop) {
-        if (isLeft) set(grid, r, c, BOX.TL);
-        else if (isRight) set(grid, r, c, BOX.TR);
-        else if (isDiv) set(grid, r, c, BOX.T_DOWN);
-        else set(grid, r, c, BOX.H);
+        if (isLeft) set(grid, r, c, BOX.TL, bp);
+        else if (isRight) set(grid, r, c, BOX.TR, bp);
+        else if (isDiv) set(grid, r, c, BOX.T_DOWN, bp);
+        else set(grid, r, c, BOX.H, bp);
       } else if (isBot) {
-        if (isLeft) set(grid, r, c, BOX.BL);
-        else if (isRight) set(grid, r, c, BOX.BR);
-        else if (isDiv) set(grid, r, c, BOX.T_UP);
-        else set(grid, r, c, BOX.H);
+        if (isLeft) set(grid, r, c, BOX.BL, bp);
+        else if (isRight) set(grid, r, c, BOX.BR, bp);
+        else if (isDiv) set(grid, r, c, BOX.T_UP, bp);
+        else set(grid, r, c, BOX.H, bp);
       } else {
-        if (isLeft || isRight || isDiv) set(grid, r, c, BOX.V);
+        if (isLeft || isRight || isDiv) set(grid, r, c, BOX.V, bp);
         else set(grid, r, c, ' ');
       }
     }
@@ -244,7 +250,7 @@ function renderHSplit(grid: CharGrid, node: HSplitNode): void {
 
 // ── Placeholder ──────────────────────────────────────────────────────────────
 
-function renderPlaceholder(grid: CharGrid, node: PlaceholderNode): void {
+function renderPlaceholder(grid: CharGrid, node: PlaceholderNode, bp: { row: number; col: number }[]): void {
   // Render as box first
   const { x, y, width, height } = node.bounds;
   if (height < 2 || width < 5) return;
@@ -258,15 +264,15 @@ function renderPlaceholder(grid: CharGrid, node: PlaceholderNode): void {
       const isLeft = c === x;
       const isRight = c === maxC;
       if (isTop) {
-        if (isLeft) set(grid, r, c, BOX.TL);
-        else if (isRight) set(grid, r, c, BOX.TR);
-        else set(grid, r, c, BOX.H);
+        if (isLeft) set(grid, r, c, BOX.TL, bp);
+        else if (isRight) set(grid, r, c, BOX.TR, bp);
+        else set(grid, r, c, BOX.H, bp);
       } else if (isBot) {
-        if (isLeft) set(grid, r, c, BOX.BL);
-        else if (isRight) set(grid, r, c, BOX.BR);
-        else set(grid, r, c, BOX.H);
+        if (isLeft) set(grid, r, c, BOX.BL, bp);
+        else if (isRight) set(grid, r, c, BOX.BR, bp);
+        else set(grid, r, c, BOX.H, bp);
       } else {
-        if (isLeft || isRight) set(grid, r, c, BOX.V);
+        if (isLeft || isRight) set(grid, r, c, BOX.V, bp);
         else set(grid, r, c, ' ');
       }
     }
@@ -407,7 +413,7 @@ function renderList(grid: CharGrid, node: ListNode): void {
 
 // ── Modal ────────────────────────────────────────────────────────────────────
 
-function renderModal(grid: CharGrid, node: ModalNode): void {
+function renderModal(grid: CharGrid, node: ModalNode, bp: { row: number; col: number }[]): void {
   const { x, y, width, height } = node.bounds;
   if (height < 4 || width < 10) return;
   const maxR = y + height - 1;
@@ -421,15 +427,15 @@ function renderModal(grid: CharGrid, node: ModalNode): void {
       const isLeft = c === x;
       const isRight = c === maxC;
       if (isTop) {
-        if (isLeft) set(grid, r, c, BOX.TL);
-        else if (isRight) set(grid, r, c, BOX.TR);
-        else set(grid, r, c, BOX.H);
+        if (isLeft) set(grid, r, c, BOX.TL, bp);
+        else if (isRight) set(grid, r, c, BOX.TR, bp);
+        else set(grid, r, c, BOX.H, bp);
       } else if (isBot) {
-        if (isLeft) set(grid, r, c, BOX.BL);
-        else if (isRight) set(grid, r, c, BOX.BR);
-        else set(grid, r, c, BOX.H);
+        if (isLeft) set(grid, r, c, BOX.BL, bp);
+        else if (isRight) set(grid, r, c, BOX.BR, bp);
+        else set(grid, r, c, BOX.H, bp);
       } else {
-        if (isLeft || isRight) set(grid, r, c, BOX.V);
+        if (isLeft || isRight) set(grid, r, c, BOX.V, bp);
         else set(grid, r, c, ' ');
       }
     }
@@ -445,10 +451,10 @@ function renderModal(grid: CharGrid, node: ModalNode): void {
 
   // Title divider at y+2
   if (y + 2 < maxR) {
-    set(grid, y + 2, x, BOX.T_RIGHT);
-    set(grid, y + 2, maxC, BOX.T_LEFT);
+    set(grid, y + 2, x, BOX.T_RIGHT, bp);
+    set(grid, y + 2, maxC, BOX.T_LEFT, bp);
     for (let c = x + 1; c < maxC; c++) {
-      set(grid, y + 2, c, BOX.H);
+      set(grid, y + 2, c, BOX.H, bp);
     }
   }
 
@@ -553,19 +559,19 @@ function renderPagination(grid: CharGrid, node: PaginationNode): void {
 
 // ── Line ─────────────────────────────────────────────────────────────────────
 
-function renderLine(grid: CharGrid, node: LineNode): void {
+function renderLine(grid: CharGrid, node: LineNode, bp: { row: number; col: number }[]): void {
   const cells = buildPolylineCells(node.points, false);
   for (const cell of cells) {
-    set(grid, cell.row, cell.col, cell.char);
+    set(grid, cell.row, cell.col, cell.char, bp);
   }
 }
 
 // ── Arrow ────────────────────────────────────────────────────────────────────
 
-function renderArrow(grid: CharGrid, node: ArrowNode): void {
+function renderArrow(grid: CharGrid, node: ArrowNode, bp: { row: number; col: number }[]): void {
   const cells = buildPolylineCells(node.points, true);
   for (const cell of cells) {
-    set(grid, cell.row, cell.col, cell.char);
+    set(grid, cell.row, cell.col, cell.char, bp);
   }
 }
 
@@ -583,35 +589,39 @@ function renderText(grid: CharGrid, node: TextNode): void {
 
 // ── Stroke ───────────────────────────────────────────────────────────────────
 
-function renderStroke(grid: CharGrid, node: StrokeNode): void {
+function renderStroke(grid: CharGrid, node: StrokeNode, bp: { row: number; col: number }[]): void {
   const { x, y } = node.bounds;
   for (const cell of node.cells) {
-    set(grid, y + cell.row, x + cell.col, cell.char);
+    set(grid, y + cell.row, x + cell.col, cell.char, bp);
   }
 }
 
 // ── Junction resolution ──────────────────────────────────────────────────────
 
-function resolveJunctions(grid: CharGrid): void {
-  // Scan all cells and resolve box-drawing junctions
-  for (let r = 0; r < grid.rows; r++) {
-    for (let c = 0; c < grid.cols; c++) {
-      const ch = grid.getChar(r, c);
-      if (!isAnyBoxChar(ch)) continue;
+function resolveJunctions(grid: CharGrid, boxPositions: { row: number; col: number }[]): void {
+  // Only resolve junctions at positions where box-drawing chars were placed
+  // Deduplicate positions using a Set for O(1) lookup
+  const seen = new Set<number>();
+  for (const { row: r, col: c } of boxPositions) {
+    const key = r * grid.cols + c;
+    if (seen.has(key)) continue;
+    seen.add(key);
 
-      const dirs = { up: false, down: false, left: false, right: false };
-      if (r > 0) { const nd = getBoxDirs(grid.getChar(r - 1, c)); if (nd?.down) dirs.up = true; }
-      if (r < grid.rows - 1) { const nd = getBoxDirs(grid.getChar(r + 1, c)); if (nd?.up) dirs.down = true; }
-      if (c > 0) { const nd = getBoxDirs(grid.getChar(r, c - 1)); if (nd?.right) dirs.left = true; }
-      if (c < grid.cols - 1) { const nd = getBoxDirs(grid.getChar(r, c + 1)); if (nd?.left) dirs.right = true; }
+    const ch = grid.getChar(r, c);
+    if (!isAnyBoxChar(ch)) continue;
 
-      // Orphan protection
-      if (!dirs.up && !dirs.down && !dirs.left && !dirs.right) continue;
+    const dirs = { up: false, down: false, left: false, right: false };
+    if (r > 0) { const nd = getBoxDirs(grid.getChar(r - 1, c)); if (nd?.down) dirs.up = true; }
+    if (r < grid.rows - 1) { const nd = getBoxDirs(grid.getChar(r + 1, c)); if (nd?.up) dirs.down = true; }
+    if (c > 0) { const nd = getBoxDirs(grid.getChar(r, c - 1)); if (nd?.right) dirs.left = true; }
+    if (c < grid.cols - 1) { const nd = getBoxDirs(grid.getChar(r, c + 1)); if (nd?.left) dirs.right = true; }
 
-      const resolved = dirsToBoxChar(dirs);
-      if (resolved !== ch) {
-        grid.setChar(r, c, resolved);
-      }
+    // Orphan protection
+    if (!dirs.up && !dirs.down && !dirs.left && !dirs.right) continue;
+
+    const resolved = dirsToBoxChar(dirs);
+    if (resolved !== ch) {
+      grid.setChar(r, c, resolved);
     }
   }
 }

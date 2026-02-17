@@ -8,10 +8,11 @@ import { GeneratePrompt } from './GeneratePrompt';
 import { hitTestCornerHandle, isInsideNodeBounds } from '@/lib/scene/hit-test';
 
 export function Grid() {
-  const { canvasRef, cellSize } = useCanvasRenderer();
-  const { handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave } = useGridMouse(
+  const { canvasRef, cellSize, scale } = useCanvasRenderer();
+  const { handlePointerDown, handlePointerMove, handlePointerUp, handlePointerLeave } = useGridMouse(
     cellSize.width,
-    cellSize.height
+    cellSize.height,
+    scale
   );
   const activeTool = useEditorStore((s) => s.activeTool);
   const selectedIds = useEditorStore((s) => s.selectedIds);
@@ -24,7 +25,7 @@ export function Grid() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const focusMobileInput = useCallback(() => {
-    // Small delay so the mousedown/touch event settles first
+    // Small delay so the pointerdown/touch event settles first
     setTimeout(() => inputRef.current?.focus(), 50);
   }, []);
 
@@ -58,10 +59,10 @@ export function Grid() {
     }
   }, []);
 
-  const handleCanvasMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    handleMouseDown(e);
+  const handleCanvasPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    handlePointerDown(e);
     focusMobileInput();
-  }, [handleMouseDown, focusMobileInput]);
+  }, [handlePointerDown, focusMobileInput]);
 
   const getCursorStyle = () => {
     if (activeTool === 'select') {
@@ -84,29 +85,39 @@ export function Grid() {
 
   return (
     <div className="relative overflow-auto flex-1 bg-white dark:bg-[#1a1a1a]">
-      <canvas ref={canvasRef} className="block" />
-      {/* Hidden textarea to trigger mobile virtual keyboard */}
-      <textarea
-        ref={inputRef}
-        className="absolute opacity-0 w-0 h-0 pointer-events-none"
-        style={{ top: 0, left: 0, fontSize: 16 }}
-        autoCapitalize="off"
-        autoComplete="off"
-        autoCorrect="off"
-        spellCheck={false}
-        onInput={handleMobileInput}
-        onKeyDown={handleMobileKeyDown}
-        aria-hidden="true"
-        tabIndex={-1}
-      />
-      <div
-        className="absolute inset-0"
-        style={{ cursor: getCursorStyle() }}
-        onMouseDown={handleCanvasMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
-      />
+      {/* 3.3: Scaled wrapper for responsive grid fitting */}
+      <div style={{
+        transform: scale < 1 ? `scale(${scale})` : undefined,
+        transformOrigin: 'top left',
+      }}>
+        <canvas ref={canvasRef} className="block" />
+        {/* Hidden textarea to trigger mobile virtual keyboard */}
+        <textarea
+          ref={inputRef}
+          className="absolute opacity-0 w-0 h-0 pointer-events-none"
+          style={{ top: 0, left: 0, fontSize: 16 }}
+          autoCapitalize="off"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          onInput={handleMobileInput}
+          onKeyDown={handleMobileKeyDown}
+          aria-hidden="true"
+          tabIndex={-1}
+        />
+        {/* 3.1: Pointer events (touch + mouse + pen) instead of mouse-only */}
+        <div
+          className="absolute inset-0"
+          style={{
+            cursor: getCursorStyle(),
+            touchAction: 'none', // 3.1: prevent browser gesture hijacking
+          }}
+          onPointerDown={handleCanvasPointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerLeave}
+        />
+      </div>
       <GeneratePrompt />
     </div>
   );
