@@ -179,11 +179,6 @@ export default function AboutPage() {
       className="min-h-screen font-mono"
       style={{
         backgroundColor: '#fafbff',
-        backgroundImage: `
-          linear-gradient(${B}11 1px, transparent 1px),
-          linear-gradient(90deg, ${B}11 1px, transparent 1px)
-        `,
-        backgroundSize: '24px 24px',
         color: '#1a1a2e',
       }}
     >
