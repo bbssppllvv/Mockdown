@@ -28,6 +28,8 @@ export function GeneratePrompt() {
   const generateLoading = useEditorStore((s) => s.generateLoading);
   const setGenerateLoading = useEditorStore((s) => s.setGenerateLoading);
   const clearGenerate = useEditorStore((s) => s.clearGenerate);
+  const generateMode = useEditorStore((s) => s.generateMode);
+  const setGenerateMode = useEditorStore((s) => s.setGenerateMode);
   const pushUndo = useEditorStore((s) => s.pushUndo);
   const applyChars = useEditorStore((s) => s.applyChars);
   const setCharsRaw = useEditorStore((s) => s.setCharsRaw);
@@ -103,6 +105,7 @@ export function GeneratePrompt() {
         },
         hasContent ? existingContent : undefined,
         abortRef.current.signal,
+        generateMode,
       );
 
       // Final pass: post-process full text and apply with junction resolution
@@ -150,6 +153,24 @@ export function GeneratePrompt() {
           >
             <X className="h-3.5 w-3.5" />
           </button>
+        </div>
+
+        {/* Mode toggle */}
+        <div className="flex rounded-lg border border-border/60 overflow-hidden">
+          {(['fast', 'quality'] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setGenerateMode(m)}
+              disabled={generateLoading}
+              className={`flex-1 px-2 py-1 text-xs font-medium transition-colors ${
+                generateMode === m
+                  ? 'bg-[#2563eb] text-white'
+                  : 'text-foreground/40 hover:text-foreground hover:bg-foreground/5'
+              } disabled:opacity-50`}
+            >
+              {m === 'fast' ? 'Fast' : 'Quality'}
+            </button>
+          ))}
         </div>
 
         {/* Prompt input */}

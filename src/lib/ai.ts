@@ -6,11 +6,12 @@ export async function streamGenerateContent(
   onLine: (lineIndex: number, fittedLine: string) => void,
   existingContent?: string,
   signal?: AbortSignal,
+  mode: 'fast' | 'quality' = 'fast',
 ): Promise<string> {
   const res = await fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, width, height, existingContent }),
+    body: JSON.stringify({ prompt, width, height, existingContent, mode }),
     signal,
   });
 

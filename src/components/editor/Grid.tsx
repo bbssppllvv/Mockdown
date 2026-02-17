@@ -8,7 +8,8 @@ import { GeneratePrompt } from './GeneratePrompt';
 import { hitTestCornerHandle, isInsideNodeBounds } from '@/lib/scene/hit-test';
 
 export function Grid() {
-  const { canvasRef, cellSize, scale } = useCanvasRenderer();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { canvasRef, cellSize, scale } = useCanvasRenderer(containerRef);
   const { handlePointerDown, handlePointerMove, handlePointerUp, handlePointerLeave } = useGridMouse(
     cellSize.width,
     cellSize.height,
@@ -84,7 +85,7 @@ export function Grid() {
   };
 
   return (
-    <div className="relative overflow-auto flex-1 bg-white dark:bg-[#1a1a1a]">
+    <div ref={containerRef} className="relative overflow-auto flex-1 bg-white dark:bg-[#1a1a1a]">
       {/* 3.3: Scaled wrapper for responsive grid fitting */}
       <div style={{
         transform: scale < 1 ? `scale(${scale})` : undefined,

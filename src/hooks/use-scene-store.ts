@@ -58,6 +58,7 @@ interface SceneState {
   // Generate
   generateSelection: GenerateSelection | null;
   generateLoading: boolean;
+  generateMode: 'fast' | 'quality';
 
   // Hover
   hoverRow: number;
@@ -118,6 +119,7 @@ interface SceneState {
   moveEditingCursor(direction: 'left' | 'right' | 'up' | 'down'): void;
   setGenerateSelection(sel: GenerateSelection | null): void;
   setGenerateLoading(loading: boolean): void;
+  setGenerateMode(mode: 'fast' | 'quality'): void;
   clearGenerate(): void;
   setShowGridLines(show: boolean): void;
   toggleTheme(): void;
@@ -170,6 +172,7 @@ export const useSceneStore = create<SceneState>((set, get) => {
 
     generateSelection: null,
     generateLoading: false,
+    generateMode: 'fast',
 
     hoverRow: -1,
     hoverCol: -1,
@@ -413,6 +416,7 @@ export const useSceneStore = create<SceneState>((set, get) => {
     },
     setGenerateSelection: (sel) => set({ generateSelection: sel }),
     setGenerateLoading: (loading) => set({ generateLoading: loading }),
+    setGenerateMode: (mode) => set({ generateMode: mode }),
     clearGenerate: () => set({ generateSelection: null, generateLoading: false }),
     setShowGridLines: (show) => set({ showGridLines: show }),
     toggleTheme: () => {

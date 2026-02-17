@@ -2,7 +2,40 @@ import { NextRequest, NextResponse } from 'next/server';
 import { streamText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 
-const MODEL = 'google/gemini-2.5-flash';
+// ─── Rate limiter (in-memory, per IP) ──────────────────────────────────────
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const RATE_LIMIT_MAX = 10;           // max requests per window
+
+const hits = new Map<string, number[]>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const timestamps = hits.get(ip)?.filter(t => now - t < RATE_LIMIT_WINDOW_MS) ?? [];
+  hits.set(ip, timestamps);
+  if (timestamps.length >= RATE_LIMIT_MAX) return true;
+  timestamps.push(now);
+  return false;
+}
+
+// Cleanup stale entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, ts] of hits) {
+    const fresh = ts.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+    if (fresh.length === 0) hits.delete(ip);
+    else hits.set(ip, fresh);
+  }
+}, 300_000);
+
+// ─── Models ────────────────────────────────────────────────────────────────
+const MAX_PROMPT_LENGTH = 2000;
+const MAX_EXISTING_CONTENT = 60_000;
+const MAX_BODY_SIZE = 65_000; // rough cap on total request body
+
+const MODELS: Record<string, string> = {
+  fast: 'google/gemini-2.5-flash',
+  quality: 'minimax/minimax-m2.5',
+};
 
 const openrouter = createOpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
@@ -189,22 +222,46 @@ EXAMPLE — "Church on a hill with trees" (55 chars × 19 lines):
    __||_/\`      =======            \`\\_||___`;
 
 export async function POST(req: NextRequest) {
+  // Rate limit by IP
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || req.headers.get('x-real-ip')
+    || 'unknown';
+  if (isRateLimited(ip)) {
+    return NextResponse.json(
+      { error: 'Too many requests. Try again in a minute.' },
+      { status: 429 },
+    );
+  }
+
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'OPENROUTER_API_KEY not configured' }, { status: 500 });
   }
 
-  const body = await req.json();
-  const { prompt, width, height, existingContent } = body;
+  const raw = await req.text();
+  if (raw.length > MAX_BODY_SIZE) {
+    return NextResponse.json({ error: 'Request too large' }, { status: 413 });
+  }
 
-  if (typeof prompt !== 'string' || prompt.length === 0 || prompt.length > 5000) {
-    return NextResponse.json({ error: 'Invalid prompt' }, { status: 400 });
+  let body: Record<string, unknown>;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
-  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || width > 300 || height < 1 || height > 200) {
-    return NextResponse.json({ error: 'Invalid dimensions' }, { status: 400 });
+
+  const { prompt, width, height, existingContent, mode } = body as {
+    prompt: unknown; width: unknown; height: unknown; existingContent?: unknown; mode?: unknown;
+  };
+
+  if (typeof prompt !== 'string' || prompt.length === 0 || prompt.length > MAX_PROMPT_LENGTH) {
+    return NextResponse.json({ error: `Prompt must be 1-${MAX_PROMPT_LENGTH} characters` }, { status: 400 });
   }
-  if (existingContent != null && (typeof existingContent !== 'string' || existingContent.length > 100000)) {
-    return NextResponse.json({ error: 'Invalid existing content' }, { status: 400 });
+  if (!Number.isInteger(width) || !Number.isInteger(height) || (width as number) < 1 || (width as number) > 200 || (height as number) < 1 || (height as number) > 100) {
+    return NextResponse.json({ error: 'Dimensions out of range (max 200×100)' }, { status: 400 });
+  }
+  if (existingContent != null && (typeof existingContent !== 'string' || existingContent.length > MAX_EXISTING_CONTENT)) {
+    return NextResponse.json({ error: 'Existing content too large' }, { status: 400 });
   }
 
   let userPrompt: string;
@@ -215,11 +272,11 @@ export async function POST(req: NextRequest) {
   }
 
   const result = streamText({
-    model: openrouter(MODEL),
+    model: openrouter(MODELS[mode === 'quality' ? 'quality' : 'fast']),
     system: SYSTEM_PROMPT,
     prompt: userPrompt,
     temperature: 0.7,
-    maxOutputTokens: Math.max(4096, width * height * 4),
+    maxOutputTokens: Math.max(4096, (width as number) * (height as number) * 4),
   });
 
   return result.toTextStreamResponse();

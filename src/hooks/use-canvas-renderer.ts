@@ -3,7 +3,7 @@ import { drawGrid, measureCellSize, RenderConfig, SelectionRect } from '@/lib/gr
 import { useEditorStore } from './use-editor-store';
 import { FONT_FAMILY, FONT_SIZE, DEFAULT_CELL_WIDTH, DEFAULT_CELL_HEIGHT, LIGHT_COLORS, DARK_COLORS } from '@/lib/constants';
 
-export function useCanvasRenderer() {
+export function useCanvasRenderer(containerRef: React.RefObject<HTMLDivElement | null>) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cellSize, setCellSize] = useState({ width: DEFAULT_CELL_WIDTH, height: DEFAULT_CELL_HEIGHT });
   const cursorVisibleRef = useRef(true);
@@ -11,6 +11,7 @@ export function useCanvasRenderer() {
   const rafRef = useRef(0);
   const lastDimsRef = useRef({ width: 0, height: 0 });
   const cellSizeRef = useRef(cellSize);
+  const containerSizeRef = useRef({ width: 0, height: 0 });
   const [scale, setScale] = useState(1);
 
   // Keep cellSizeRef in sync
@@ -60,8 +61,12 @@ export function useCanvasRenderer() {
       showGridLines: store.showGridLines,
     };
 
-    const totalWidth = grid.cols * config.cellWidth;
-    const totalHeight = grid.rows * config.cellHeight;
+    const gridWidth = grid.cols * config.cellWidth;
+    const gridHeight = grid.rows * config.cellHeight;
+    // Expand canvas to fill the container viewport
+    const cSize = containerSizeRef.current;
+    const totalWidth = Math.max(gridWidth, cSize.width);
+    const totalHeight = Math.max(gridHeight, cSize.height);
     const pxW = Math.round(totalWidth * dpr);
     const pxH = Math.round(totalHeight * dpr);
 
@@ -76,6 +81,11 @@ export function useCanvasRenderer() {
 
     // 1.1: setTransform is idempotent (doesn't compound like scale())
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // Fill full canvas background (canvas may be larger than grid)
+    const themeColors = store.theme === 'dark' ? DARK_COLORS : LIGHT_COLORS;
+    ctx.fillStyle = themeColors.gridBg;
+    ctx.fillRect(0, 0, totalWidth, totalHeight);
 
     // Compute selection rect from selectedIds
     let selectionRect: SelectionRect | null = null;
@@ -94,7 +104,6 @@ export function useCanvasRenderer() {
 
     const cursor = { row: store.cursorRow, col: store.cursorCol };
     const hover = store.hoverRow >= 0 ? { row: store.hoverRow, col: store.hoverCol } : null;
-    const themeColors = store.theme === 'dark' ? DARK_COLORS : LIGHT_COLORS;
     drawGrid(ctx, grid, config, cursor, store.preview, cursorVisibleRef.current, hover, store.generateSelection, selectionRect, themeColors);
   }, []); // stable - reads from refs and getState()
 
@@ -160,6 +169,24 @@ export function useCanvasRenderer() {
     window.addEventListener('resize', computeScale);
     return () => window.removeEventListener('resize', computeScale);
   }, []);
+
+  // Track container size so canvas fills the viewport
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        containerSizeRef.current = {
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        };
+        lastDimsRef.current = { width: 0, height: 0 }; // force canvas resize
+        scheduleRender();
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [containerRef, scheduleRender]);
 
   // 1.2: Subscribe to store changes and schedule render (replaces the useEffect+[render] pattern)
   useEffect(() => {
