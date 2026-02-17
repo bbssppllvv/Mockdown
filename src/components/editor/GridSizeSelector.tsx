@@ -10,7 +10,7 @@ import { GRID_PRESETS } from '@/lib/constants';
 import { useState, useEffect } from 'react';
 
 export function GridSizeSelector() {
-  const grid = useEditorStore((s) => s.grid);
+  const grid = useEditorStore((s) => s.renderedGrid);
   const resizeGrid = useEditorStore((s) => s.resizeGrid);
   const [customCols, setCustomCols] = useState('');
   const [customRows, setCustomRows] = useState('');

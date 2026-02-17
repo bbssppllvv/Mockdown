@@ -1,32 +1,39 @@
 import { DrawingTool, GridPos, PreviewCell, ToolResult } from './types';
 
-const MIN_WIDTH = 4;
-const DEFAULT_WIDTH = 13;
+const DEFAULT_PLACEHOLDER = 'Search...';
+const MIN_WIDTH = 10;
+const DEFAULT_WIDTH = 20;
 
-function buildInputPreview(row: number, col: number, width: number): PreviewCell[] {
-  const w = Math.max(width, 4); // minimum "[__]"
+function buildSearchPreview(row: number, col: number, width: number, placeholder: string): PreviewCell[] {
+  const w = Math.max(width, 10);
   const cells: PreviewCell[] = [];
   cells.push({ row, col, char: '[' });
-  cells.push({ row, col: col + w - 1, char: ']' });
-  for (let c = col + 1; c < col + w - 1; c++) {
-    cells.push({ row, col: c, char: '_' });
+  cells.push({ row, col: col + 1, char: '/' });
+  cells.push({ row, col: col + 2, char: ' ' });
+  const maxLabel = w - 4;
+  for (let i = 0; i < placeholder.length && i < maxLabel; i++) {
+    cells.push({ row, col: col + 3 + i, char: placeholder[i] });
   }
+  for (let c = col + 3 + Math.min(placeholder.length, maxLabel); c < col + w - 1; c++) {
+    cells.push({ row, col: c, char: ' ' });
+  }
+  cells.push({ row, col: col + w - 1, char: ']' });
   return cells;
 }
 
-export const inputFieldTool: DrawingTool = {
-  id: 'input',
-  label: 'Input',
-  icon: 'TextCursorInput',
+export const searchTool: DrawingTool = {
+  id: 'search',
+  label: 'Search',
+  icon: 'Search',
 
   onClick(pos: GridPos): ToolResult {
     return {
       kind: 'create',
       node: {
-        type: 'input',
-        name: 'Input',
+        type: 'search',
+        name: 'Search',
         bounds: { x: pos.col, y: pos.row, width: DEFAULT_WIDTH, height: 1 },
-        placeholder: '',
+        placeholder: DEFAULT_PLACEHOLDER,
       },
     };
   },
@@ -38,10 +45,10 @@ export const inputFieldTool: DrawingTool = {
     const minC = Math.min(start.col, current.col);
     const maxC = Math.max(start.col, current.col);
     if (start.row === current.row && start.col === current.col) {
-      return buildInputPreview(minR, minC, DEFAULT_WIDTH);
+      return buildSearchPreview(minR, minC, DEFAULT_WIDTH, DEFAULT_PLACEHOLDER);
     }
     const w = Math.max(maxC - minC + 1, MIN_WIDTH);
-    return buildInputPreview(minR, minC, w);
+    return buildSearchPreview(minR, minC, w, DEFAULT_PLACEHOLDER);
   },
 
   onDragEnd(start: GridPos, end: GridPos): ToolResult {
@@ -53,10 +60,10 @@ export const inputFieldTool: DrawingTool = {
     return {
       kind: 'create',
       node: {
-        type: 'input',
-        name: 'Input',
+        type: 'search',
+        name: 'Search',
         bounds: { x: minC, y: minR, width: w, height: 1 },
-        placeholder: '',
+        placeholder: DEFAULT_PLACEHOLDER,
       },
     };
   },

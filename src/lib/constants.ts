@@ -14,22 +14,69 @@ export const CHAR_COLOR = '#2563eb';
 export const CURSOR_COLOR = '#2563eb';
 export const PREVIEW_COLOR = 'rgba(37, 99, 235, 0.35)';
 
+export type Theme = 'light' | 'dark';
+
+export interface ThemeColors {
+  gridBg: string;
+  gridLine: string;
+  char: string;
+  cursor: string;
+  accentRgb: string; // "r, g, b" for rgba() usage
+  dark: boolean;
+}
+
+export const LIGHT_COLORS: ThemeColors = {
+  gridBg: '#ffffff',
+  gridLine: '#e5e7eb',
+  char: '#2563eb',
+  cursor: '#2563eb',
+  accentRgb: '37, 99, 235',
+  dark: false,
+};
+
+export const DARK_COLORS: ThemeColors = {
+  gridBg: '#1a1a1a',
+  gridLine: '#2d2d2d',
+  char: '#60a5fa',
+  cursor: '#60a5fa',
+  accentRgb: '96, 165, 250',
+  dark: true,
+};
+
 export const MAX_UNDO = 50;
 
 export const TOOL_IDS = [
   'select',
-  'cursor',
+  'text',
   'box',
   'line',
   'arrow',
   'image',
+  'card',
+  'table',
+  'hsplit',
+  'nav',
+  'tabs',
+  'list',
+  'placeholder',
+  'modal',
+  'pencil',
+  'brush',
+  'spray',
+  'shade',
+  'fill',
+  'eraser',
   'button',
   'checkbox',
   'radio',
   'input',
   'dropdown',
-  'eraser',
-  'magic',
+  'search',
+  'toggle',
+  'progress',
+  'breadcrumb',
+  'pagination',
+  'generate',
 ] as const;
 
 export type ToolId = (typeof TOOL_IDS)[number];

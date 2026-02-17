@@ -1,24 +1,15 @@
-import { useEditorStore } from './use-editor-store';
+import { useSceneStore } from './use-scene-store';
 import { getTool } from '@/components/tools/registry';
-import { CharGrid } from '@/lib/grid-model';
-import { detectObjectAt } from '@/lib/object-detection';
-import {
-  isInsideBounds,
-  hitTestCornerHandle,
-  buildMovePreview,
-  applyMove,
-  computeResizedBounds,
-  buildResizePreview,
-  applyResize,
-} from '@/lib/select-operations';
+import { hitTestPoint, hitTestRegion, hitTestCornerHandle, isInsideNodeBounds } from '@/lib/scene/hit-test';
+import { SparseCell, Bounds } from '@/lib/scene/types';
+import { detectTextRegion, getPrimaryTextKey, getNodeText } from '@/lib/scene/text-editing';
+
+// Module-level tracking for continuous drawing tools
+let lastContinuousPos: { row: number; col: number } | null = null;
+let continuousAccumulator: SparseCell[] = [];
 
 export function pixelToGrid(
-  x: number,
-  y: number,
-  cellWidth: number,
-  cellHeight: number,
-  maxRows: number,
-  maxCols: number
+  x: number, y: number, cellWidth: number, cellHeight: number, maxRows: number, maxCols: number
 ): { row: number; col: number } {
   const col = Math.max(0, Math.min(Math.floor(x / cellWidth), maxCols - 1));
   const row = Math.max(0, Math.min(Math.floor(y / cellHeight), maxRows - 1));
@@ -27,297 +18,375 @@ export function pixelToGrid(
 
 function getPos(e: React.MouseEvent<HTMLDivElement>, cellWidth: number, cellHeight: number) {
   const rect = e.currentTarget.getBoundingClientRect();
-  const s = useEditorStore.getState();
+  const s = useSceneStore.getState();
   return pixelToGrid(
-    e.clientX - rect.left,
-    e.clientY - rect.top,
-    cellWidth,
-    cellHeight,
-    s.grid.rows,
-    s.grid.cols
+    e.clientX - rect.left, e.clientY - rect.top,
+    cellWidth, cellHeight, s.document.gridRows, s.document.gridCols
   );
-}
-
-// Detect if clicked cell is part of a toggleable checkbox [ ]/[x] or radio ( )/(*)
-function detectToggle(grid: CharGrid, row: number, col: number): { row: number; col: number; char: string } | null {
-  for (let offset = -2; offset <= 0; offset++) {
-    const sc = col + offset;
-    if (sc < 0 || sc + 2 >= grid.cols) continue;
-    const c0 = grid.getChar(row, sc);
-    const c1 = grid.getChar(row, sc + 1);
-    const c2 = grid.getChar(row, sc + 2);
-    if (c0 === '[' && c2 === ']') {
-      if (c1 === ' ') return { row, col: sc + 1, char: 'x' };
-      if (c1 === 'x') return { row, col: sc + 1, char: ' ' };
-    }
-    if (c0 === '(' && c2 === ')') {
-      if (c1 === ' ') return { row, col: sc + 1, char: '*' };
-      if (c1 === '*') return { row, col: sc + 1, char: ' ' };
-    }
-  }
-  return null;
-}
-
-// Detect widget at position for double-click label editing
-function detectWidget(grid: CharGrid, row: number, col: number): {
-  contentStart: number; oldEnd: number; suffix: string;
-} | null {
-  // Scan left for opening bracket
-  let openCol = col;
-  while (openCol > 0 && grid.getChar(row, openCol) !== '[' && grid.getChar(row, openCol) !== '(') {
-    openCol--;
-  }
-  const openChar = grid.getChar(row, openCol);
-  if (openChar !== '[' && openChar !== '(') return null;
-
-  // Radio: ( ) Label or (*) Label
-  if (openChar === '(' && openCol + 2 < grid.cols && grid.getChar(row, openCol + 2) === ')') {
-    const labelStart = openCol + 4;
-    if (labelStart >= grid.cols) return null;
-    let labelEnd = labelStart;
-    while (labelEnd < grid.cols && grid.getChar(row, labelEnd) !== ' ' || (labelEnd < grid.cols && grid.getChar(row, labelEnd + 1) !== ' ' && grid.getChar(row, labelEnd) === ' ')) {
-      labelEnd++;
-    }
-    // Find last non-space from labelStart
-    let end = labelStart;
-    for (let c = labelStart; c < grid.cols; c++) {
-      if (grid.getChar(row, c) !== ' ') end = c;
-    }
-    return { contentStart: labelStart, oldEnd: end, suffix: '' };
-  }
-
-  // Checkbox: [ ] Label or [x] Label
-  if (openChar === '[' && openCol + 2 < grid.cols) {
-    const c1 = grid.getChar(row, openCol + 1);
-    const c2 = grid.getChar(row, openCol + 2);
-    if ((c1 === ' ' || c1 === 'x') && c2 === ']') {
-      const labelStart = openCol + 4;
-      if (labelStart >= grid.cols) return null;
-      let end = labelStart;
-      for (let c = labelStart; c < grid.cols; c++) {
-        if (grid.getChar(row, c) !== ' ') end = c;
-      }
-      return { contentStart: labelStart, oldEnd: end, suffix: '' };
-    }
-  }
-
-  // Scan right for closing ]
-  let closeCol = openCol + 1;
-  while (closeCol < grid.cols && grid.getChar(row, closeCol) !== ']') {
-    closeCol++;
-  }
-  if (closeCol >= grid.cols) return null;
-
-  // Dropdown: [v Label ]
-  if (grid.getChar(row, openCol + 1) === 'v') {
-    return { contentStart: openCol + 3, oldEnd: closeCol, suffix: ' ]' };
-  }
-
-  // Button: [ Label ]
-  return { contentStart: openCol + 2, oldEnd: closeCol, suffix: ' ]' };
 }
 
 export function useGridMouse(cellWidth: number, cellHeight: number) {
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    const s = useEditorStore.getState();
+    const s = useSceneStore.getState();
 
-    // If magic prompt is open, clicking on grid dismisses it
-    if (s.magicSelection) {
-      s.clearMagic();
+    // If generate prompt is open, clicking on grid dismisses it
+    if (s.generateSelection) {
+      s.clearGenerate();
       return;
     }
 
     const pos = getPos(e, cellWidth, cellHeight);
 
     if (s.textInputActive) {
-      s.finalizeLabelEdit();
-      s.setTextInputActive(false);
+      s.stopEditing();
     }
 
     s.setCursor(pos.row, pos.col);
 
-    // Select tool
+    // ── Select tool ──────────────────────────────────────────────────
     if (s.activeTool === 'select') {
-      // If we have a selection, check if clicking on corner handle (box only) or inside bounds
-      if (s.selection) {
-        // Check corner handles first (box only)
-        if (s.selection.type === 'box') {
-          const corner = hitTestCornerHandle(pos.row, pos.col, s.selection.bounds);
-          if (corner) {
+      // Double-click: enter edit mode or drill into group
+      if (e.detail >= 2 && s.selectedIds.length === 1) {
+        const nodeId = s.selectedIds[0];
+        const node = s.document.nodes.get(nodeId);
+        if (node && isInsideNodeBounds(s.document, nodeId, pos.row, pos.col)) {
+          if (node.type === 'group') {
+            s.setDrillScope(nodeId);
+            return;
+          }
+          // Detect which text region was clicked
+          const region = detectTextRegion(node, pos.row, pos.col);
+          if (region) {
             s.pushUndo();
-            s.setSelectInteraction('resizing');
-            s.setSelectDragStart(pos);
-            s.setSelectOriginalBounds({ ...s.selection.bounds });
-            s.setResizeCorner(corner);
+            s.startEditing(nodeId, region.key, region.cursorPos);
             return;
           }
         }
+      }
 
-        // Check if clicking inside the selection bounds
-        if (isInsideBounds(pos.row, pos.col, s.selection.bounds)) {
+      // Check corner handles on selected nodes
+      if (s.selectedIds.length === 1) {
+        const nodeId = s.selectedIds[0];
+        const corner = hitTestCornerHandle(s.document, nodeId, pos.row, pos.col);
+        if (corner) {
+          s.pushUndo();
+          const node = s.document.nodes.get(nodeId)!;
+          s.setSelectInteraction('resizing');
+          s.setSelectDragStart(pos);
+          s.setResizeCorner(corner);
+          s.setOriginalBoundsMap(new Map([[nodeId, { ...node.bounds }]]));
+          return;
+        }
+
+        // Check if clicking inside selected node → start move
+        if (isInsideNodeBounds(s.document, nodeId, pos.row, pos.col)) {
           s.pushUndo();
           s.setSelectInteraction('moving');
           s.setSelectDragStart(pos);
-          s.setSelectOriginalBounds({ ...s.selection.bounds });
+          const boundsMap = new Map<string, Bounds>();
+          for (const id of s.selectedIds) {
+            const n = s.document.nodes.get(id);
+            if (n) boundsMap.set(id, { ...n.bounds });
+          }
+          s.setOriginalBoundsMap(boundsMap);
           return;
         }
       }
 
-      // Otherwise try to detect an object at click position
-      const detected = detectObjectAt(s.grid, pos.row, pos.col);
-      if (detected) {
-        s.setSelection({ bounds: detected.bounds, type: detected.type });
-      } else {
-        s.clearSelection();
-      }
-      return;
-    }
-
-    // Cursor tool = text mode
-    if (s.activeTool === 'cursor') {
-      // Check for checkbox/radio toggle (click on the [ ]/( ) marker itself)
-      const toggle = detectToggle(s.grid, pos.row, pos.col);
-      if (toggle) {
-        s.pushUndo();
-        s.applyChars([toggle]);
-        return;
-      }
-
-      // Check if clicking inside a widget label — enter label edit mode
-      const widget = detectWidget(s.grid, pos.row, pos.col);
-      if (widget) {
-        s.pushUndo();
-        for (let c = widget.contentStart; c <= widget.oldEnd; c++) {
-          if (c < s.grid.cols) s.grid.setChar(pos.row, c, ' ');
+      // Multi-selection: check if clicking inside any selected node
+      if (s.selectedIds.length > 1) {
+        for (const id of s.selectedIds) {
+          if (isInsideNodeBounds(s.document, id, pos.row, pos.col)) {
+            s.pushUndo();
+            s.setSelectInteraction('moving');
+            s.setSelectDragStart(pos);
+            const boundsMap = new Map<string, Bounds>();
+            for (const sid of s.selectedIds) {
+              const n = s.document.nodes.get(sid);
+              if (n) boundsMap.set(sid, { ...n.bounds });
+            }
+            s.setOriginalBoundsMap(boundsMap);
+            return;
+          }
         }
-        s.applyChars([]);
-        s.setCursor(pos.row, widget.contentStart);
-        s.setLabelEdit({ row: pos.row, ...widget });
-        s.setTextInputActive(true, { row: pos.row, col: widget.contentStart });
       }
+
+      // Nothing hit → start marquee selection or click-to-select
+      s.clearSelection();
+      s.setSelectInteraction('selecting');
+      s.setSelectDragStart(pos);
       return;
     }
 
+    // ── Drawing tools ────────────────────────────────────────────────
     const tool = getTool(s.activeTool);
 
-    // Drag tools (box, line, arrow, eraser)
-    if (tool.onDragEnd) {
+    // Continuous drawing tools
+    if (tool.continuous) {
+      s.setIsDrawing(true);
+      s.setDrawStart(pos);
+      lastContinuousPos = pos;
+      continuousAccumulator = [];
+
+      if (tool.onContinuousDrag) {
+        tool.onContinuousDrag(pos, pos, s.renderedGrid, continuousAccumulator);
+        // Show full accumulator as preview so strokes stay visible during drag
+        s.setPreview([...continuousAccumulator]);
+      } else if (tool.onDragStart) {
+        const cells = tool.onDragStart(pos, s.renderedGrid);
+        if (cells) s.setPreview(cells);
+      }
+      return;
+    }
+
+    // All widget tools: start drag tracking (click vs drag determined on mouseUp)
+    if (tool.onDragEnd || tool.onClick) {
       s.setIsDrawing(true);
       s.setDrawStart(pos);
       if (tool.onDragStart) {
-        s.setPreview(tool.onDragStart(pos, s.grid));
-      }
-      return;
-    }
-
-    // Click-to-place tools (button, checkbox, radio, input, dropdown)
-    if (tool.onClick) {
-      s.pushUndo();
-      const result = tool.onClick(pos, s.grid);
-      if (result && result.chars.length > 0) {
-        s.applyChars(result.chars);
-      }
-      s.setPreview(null);
-      if (tool.needsTextInput) {
-        s.setTextInputActive(true, pos);
+        s.setPreview(tool.onDragStart(pos, s.renderedGrid));
       }
       return;
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const s = useEditorStore.getState();
+    const s = useSceneStore.getState();
     const pos = getPos(e, cellWidth, cellHeight);
-
     s.setHover(pos.row, pos.col);
 
-    // Select tool move/resize
+    // ── Select tool ──────────────────────────────────────────────────
     if (s.activeTool === 'select') {
-      if (s.selectInteraction === 'moving' && s.selectDragStart && s.selectOriginalBounds) {
+      if (s.selectInteraction === 'moving' && s.selectDragStart && s.originalBoundsMap) {
         const dRow = pos.row - s.selectDragStart.row;
         const dCol = pos.col - s.selectDragStart.col;
-        const preview = buildMovePreview(s.grid, s.selectOriginalBounds, dRow, dCol);
-        s.setPreview(preview);
+        // Build move preview from original bounds
+        const preview: { row: number; col: number; char: string }[] = [];
+        for (const [id, origBounds] of s.originalBoundsMap) {
+          const nb = {
+            x: origBounds.x + dCol,
+            y: origBounds.y + dRow,
+            width: origBounds.width,
+            height: origBounds.height,
+          };
+          // Show bounds outline as preview
+          for (let c = nb.x; c < nb.x + nb.width; c++) {
+            preview.push({ row: nb.y, col: c, char: ' ' });
+            preview.push({ row: nb.y + nb.height - 1, col: c, char: ' ' });
+          }
+          for (let r = nb.y + 1; r < nb.y + nb.height - 1; r++) {
+            preview.push({ row: r, col: nb.x, char: ' ' });
+            preview.push({ row: r, col: nb.x + nb.width - 1, char: ' ' });
+          }
+        }
+        s.setPreview(preview.length > 0 ? preview : null);
         return;
       }
-      if (s.selectInteraction === 'resizing' && s.selectDragStart && s.selectOriginalBounds && s.resizeCorner) {
+
+      if (s.selectInteraction === 'resizing' && s.selectDragStart && s.originalBoundsMap && s.resizeCorner && s.selectedIds.length === 1) {
+        const nodeId = s.selectedIds[0];
+        const origBounds = s.originalBoundsMap.get(nodeId);
+        if (!origBounds) return;
         const dRow = pos.row - s.selectDragStart.row;
         const dCol = pos.col - s.selectDragStart.col;
-        const newBounds = computeResizedBounds(s.selectOriginalBounds, s.resizeCorner, dRow, dCol);
-        const preview = buildResizePreview(s.grid, s.selectOriginalBounds, newBounds);
-        s.setPreview(preview);
+        const newBounds = computeResizedBounds(origBounds, s.resizeCorner, dRow, dCol);
+        // Show resize preview as empty outline
+        const preview: { row: number; col: number; char: string }[] = [];
+        for (let c = newBounds.x; c < newBounds.x + newBounds.width; c++) {
+          preview.push({ row: newBounds.y, col: c, char: ' ' });
+          preview.push({ row: newBounds.y + newBounds.height - 1, col: c, char: ' ' });
+        }
+        for (let r = newBounds.y + 1; r < newBounds.y + newBounds.height - 1; r++) {
+          preview.push({ row: r, col: newBounds.x, char: ' ' });
+          preview.push({ row: r, col: newBounds.x + newBounds.width - 1, char: ' ' });
+        }
+        s.setPreview(preview.length > 0 ? preview : null);
         return;
       }
+
+      if (s.selectInteraction === 'selecting' && s.selectDragStart) {
+        // Marquee — don't set selection during drag, wait for mouseup
+        return;
+      }
+
       if (s.preview) s.setPreview(null);
       return;
     }
 
-    // Cursor tool = no previews
-    if (s.activeTool === 'cursor') {
-      if (s.preview) s.setPreview(null);
-      return;
-    }
-
+    // ── Drawing tools ────────────────────────────────────────────────
     const tool = getTool(s.activeTool);
 
+    // Continuous tools
+    if (tool.continuous) {
+      if (s.isDrawing && lastContinuousPos) {
+        if (tool.onContinuousDrag) {
+          tool.onContinuousDrag(lastContinuousPos, pos, s.renderedGrid, continuousAccumulator);
+          // Show full accumulator so entire stroke stays visible during drag
+          s.setPreview([...continuousAccumulator]);
+        } else if (tool.onDrag) {
+          const cells = tool.onDrag(lastContinuousPos, pos, s.renderedGrid);
+          if (cells) s.setPreview(cells);
+        }
+        lastContinuousPos = pos;
+      } else if (!s.isDrawing && tool.onDragStart) {
+        s.setPreview(tool.onDragStart(pos, s.renderedGrid));
+      }
+      return;
+    }
+
     if (s.isDrawing && s.drawStart && tool.onDrag) {
-      s.setPreview(tool.onDrag(s.drawStart, pos, s.grid));
-    } else if (!s.isDrawing && tool.onClick && !tool.onDragEnd) {
-      // Hover ghost for click-to-place tools
-      const result = tool.onClick(pos, s.grid);
-      s.setPreview(result && result.chars.length > 0 ? result.chars : null);
-    } else if (!s.isDrawing) {
-      if (s.preview) s.setPreview(null);
+      s.setPreview(tool.onDrag(s.drawStart, pos, s.renderedGrid));
+    } else if (!s.isDrawing && tool.onDrag) {
+      // Ghost preview: show element at default size under cursor
+      s.setPreview(tool.onDrag(pos, pos, s.renderedGrid));
+    } else if (!s.isDrawing && s.preview) {
+      s.setPreview(null);
     }
   };
 
   const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
-    const s = useEditorStore.getState();
+    const s = useSceneStore.getState();
 
-    // Select tool: finalize move/resize
-    if (s.activeTool === 'select' && s.selectInteraction !== 'idle' && s.selectDragStart && s.selectOriginalBounds) {
-      const pos = getPos(e, cellWidth, cellHeight);
+    // ── Select tool: finalize ────────────────────────────────────────
+    if (s.activeTool === 'select') {
+      if (s.selectInteraction === 'selecting' && s.selectDragStart) {
+        const pos = getPos(e, cellWidth, cellHeight);
+        const dRow = Math.abs(pos.row - s.selectDragStart.row);
+        const dCol = Math.abs(pos.col - s.selectDragStart.col);
 
-      if (s.selectInteraction === 'moving') {
-        const dRow = pos.row - s.selectDragStart.row;
-        const dCol = pos.col - s.selectDragStart.col;
-        if (dRow !== 0 || dCol !== 0) {
-          const newBounds = applyMove(s.grid, s.selectOriginalBounds, dRow, dCol);
-          // Trigger re-render
-          s.applyChars([]);
-          s.setSelection({ bounds: newBounds, type: s.selection!.type });
+        if (dRow + dCol > 0) {
+          // Dragged: marquee select — find all nodes intersecting the rectangle
+          const minR = Math.min(s.selectDragStart.row, pos.row);
+          const maxR = Math.max(s.selectDragStart.row, pos.row);
+          const minC = Math.min(s.selectDragStart.col, pos.col);
+          const maxC = Math.max(s.selectDragStart.col, pos.col);
+          const ids = hitTestRegion(s.document, minR, maxR, minC, maxC, s.drillScope);
+          s.setSelection(ids);
+        } else {
+          // Click: point hit-test
+          const hitId = hitTestPoint(s.document, pos.row, pos.col, s.drillScope);
+          if (hitId) {
+            s.setSelection([hitId]);
+          } else {
+            s.clearSelection();
+            // If in drill scope, clicking empty exits drill
+            if (s.drillScope) {
+              s.setDrillScope(null);
+            }
+          }
         }
-      } else if (s.selectInteraction === 'resizing' && s.resizeCorner) {
-        const dRow = pos.row - s.selectDragStart.row;
-        const dCol = pos.col - s.selectDragStart.col;
-        if (dRow !== 0 || dCol !== 0) {
-          const newBounds = computeResizedBounds(s.selectOriginalBounds, s.resizeCorner, dRow, dCol);
-          const finalBounds = applyResize(s.grid, s.selectOriginalBounds, newBounds);
-          s.applyChars([]);
-          s.setSelection({ bounds: finalBounds, type: s.selection!.type });
-        }
+
+        s.setSelectInteraction('idle');
+        s.setSelectDragStart(null);
+        s.setPreview(null);
+        return;
       }
 
-      s.setSelectInteraction('idle');
-      s.setSelectDragStart(null);
-      s.setSelectOriginalBounds(null);
-      s.setResizeCorner(null);
-      s.setPreview(null);
-      return;
+      // Finalize move
+      if (s.selectInteraction === 'moving' && s.selectDragStart && s.originalBoundsMap) {
+        const pos = getPos(e, cellWidth, cellHeight);
+        const dRow = pos.row - s.selectDragStart.row;
+        const dCol = pos.col - s.selectDragStart.col;
+        if (dRow !== 0 || dCol !== 0) {
+          s.moveNodes(s.selectedIds, dRow, dCol);
+        }
+        s.setSelectInteraction('idle');
+        s.setSelectDragStart(null);
+        s.setOriginalBoundsMap(null);
+        s.setPreview(null);
+        return;
+      }
+
+      // Finalize resize
+      if (s.selectInteraction === 'resizing' && s.selectDragStart && s.originalBoundsMap && s.resizeCorner && s.selectedIds.length === 1) {
+        const pos = getPos(e, cellWidth, cellHeight);
+        const nodeId = s.selectedIds[0];
+        const origBounds = s.originalBoundsMap.get(nodeId);
+        if (origBounds) {
+          const dRow = pos.row - s.selectDragStart.row;
+          const dCol = pos.col - s.selectDragStart.col;
+          if (dRow !== 0 || dCol !== 0) {
+            const newBounds = computeResizedBounds(origBounds, s.resizeCorner, dRow, dCol);
+            s.resizeNode(nodeId, newBounds);
+          }
+        }
+        s.setSelectInteraction('idle');
+        s.setSelectDragStart(null);
+        s.setOriginalBoundsMap(null);
+        s.setResizeCorner(null);
+        s.setPreview(null);
+        return;
+      }
     }
 
+    // ── Drawing tools: finalize ──────────────────────────────────────
     if (s.isDrawing && s.drawStart) {
       const pos = getPos(e, cellWidth, cellHeight);
       const tool = getTool(s.activeTool);
 
-      // Magic tool: store selection instead of applying chars
-      if (s.activeTool === 'magic') {
+      // Continuous tools: create StrokeNode from accumulator (or delete for eraser)
+      if (tool.continuous) {
+        if (s.activeTool === 'eraser') {
+          // Eraser: hit-test accumulated positions and delete touched nodes
+          const nodeIds = new Set<string>();
+          for (const cell of continuousAccumulator) {
+            const hitId = hitTestPoint(s.document, cell.row, cell.col);
+            if (hitId) nodeIds.add(hitId);
+          }
+          if (nodeIds.size > 0) {
+            s.pushUndo();
+            s.removeNodes([...nodeIds]);
+          }
+          s.setIsDrawing(false);
+          s.setDrawStart(null);
+          s.setPreview(null);
+          lastContinuousPos = null;
+          continuousAccumulator = [];
+          return;
+        }
+
+        if (continuousAccumulator.length > 0) {
+          // Compute bounds from accumulated cells (absolute coords)
+          let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+          for (const cell of continuousAccumulator) {
+            if (cell.row < minR) minR = cell.row;
+            if (cell.row > maxR) maxR = cell.row;
+            if (cell.col < minC) minC = cell.col;
+            if (cell.col > maxC) maxC = cell.col;
+          }
+          // Convert to relative coords
+          const relativeCells: SparseCell[] = continuousAccumulator.map(c => ({
+            row: c.row - minR,
+            col: c.col - minC,
+            char: c.char,
+          }));
+          s.pushUndo();
+          const newId = s.addNode({
+            type: 'stroke',
+            name: 'Stroke',
+            bounds: { x: minC, y: minR, width: maxC - minC + 1, height: maxR - minR + 1 },
+            cells: relativeCells,
+          });
+          // Auto-select the newly created node and switch to select tool
+          s.setActiveTool('select');
+          s.setSelection([newId]);
+        }
+        s.setIsDrawing(false);
+        s.setDrawStart(null);
+        s.setPreview(null);
+        lastContinuousPos = null;
+        continuousAccumulator = [];
+        return;
+      }
+
+      // Generate tool: store selection instead of applying chars
+      if (s.activeTool === 'generate') {
         const minR = Math.min(s.drawStart.row, pos.row);
         const maxR = Math.max(s.drawStart.row, pos.row);
         const minC = Math.min(s.drawStart.col, pos.col);
         const maxC = Math.max(s.drawStart.col, pos.col);
         if (maxR - minR >= 1 && maxC - minC >= 2) {
-          s.setMagicSelection({ minRow: minR, maxRow: maxR, minCol: minC, maxCol: maxC });
+          s.setGenerateSelection({ minRow: minR, maxRow: maxR, minCol: minC, maxCol: maxC });
         }
         s.setIsDrawing(false);
         s.setDrawStart(null);
@@ -325,10 +394,46 @@ export function useGridMouse(cellWidth: number, cellHeight: number) {
         return;
       }
 
-      if (tool.onDragEnd) {
+      // Unified click-vs-drag: if barely moved and tool has onClick, treat as click
+      const dist = Math.abs(pos.row - s.drawStart.row) + Math.abs(pos.col - s.drawStart.col);
+      if (dist < 2 && tool.onClick) {
         s.pushUndo();
-        const result = tool.onDragEnd(s.drawStart, pos, s.grid);
-        if (result) s.applyChars(result.chars);
+        const result = tool.onClick(pos, s.renderedGrid);
+        if (result && result.kind === 'create') {
+          const newId = s.addNode(result.node);
+          if (tool.needsTextInput) {
+            s.setActiveTool('select');
+            s.setSelection([newId]);
+            const key = getPrimaryTextKey(result.node.type);
+            if (key) {
+              const text = getNodeText(result.node as any, key);
+              s.startEditing(newId, key, text?.length ?? 0);
+            }
+          } else {
+            s.setActiveTool('select');
+            s.setSelection([newId]);
+          }
+        }
+      } else if (tool.onDragEnd) {
+        s.pushUndo();
+        const result = tool.onDragEnd(s.drawStart, pos, s.renderedGrid);
+        if (result && result.kind === 'create') {
+          const newId = s.addNode(result.node);
+          if (tool.needsTextInput) {
+            s.setActiveTool('select');
+            s.setSelection([newId]);
+            const key = getPrimaryTextKey(result.node.type);
+            if (key) {
+              const text = getNodeText(result.node as any, key);
+              s.startEditing(newId, key, text?.length ?? 0);
+            }
+          } else {
+            s.setActiveTool('select');
+            s.setSelection([newId]);
+          }
+        } else if (result && result.kind === 'delete') {
+          s.removeNodes(result.nodeIds);
+        }
       }
 
       s.setIsDrawing(false);
@@ -338,10 +443,51 @@ export function useGridMouse(cellWidth: number, cellHeight: number) {
   };
 
   const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
-    useEditorStore.getState().setHover(-1, -1);
-    useEditorStore.getState().setPreview(null);
+    useSceneStore.getState().setHover(-1, -1);
+    useSceneStore.getState().setPreview(null);
     handleMouseUp(e);
   };
 
   return { handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave };
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function computeResizedBounds(
+  orig: Bounds,
+  corner: string,
+  dRow: number,
+  dCol: number
+): Bounds {
+  let { x, y, width, height } = orig;
+  const minW = 2;
+  const minH = 1;
+
+  switch (corner) {
+    case 'top-left':
+      x += dCol;
+      y += dRow;
+      width -= dCol;
+      height -= dRow;
+      break;
+    case 'top-right':
+      y += dRow;
+      width += dCol;
+      height -= dRow;
+      break;
+    case 'bottom-left':
+      x += dCol;
+      width -= dCol;
+      height += dRow;
+      break;
+    case 'bottom-right':
+      width += dCol;
+      height += dRow;
+      break;
+  }
+
+  if (width < minW) { width = minW; }
+  if (height < minH) { height = minH; }
+
+  return { x, y, width, height };
 }

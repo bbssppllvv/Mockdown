@@ -7,7 +7,7 @@ export function StatusBar() {
   const activeTool = useEditorStore((s) => s.activeTool);
   const cursorRow = useEditorStore((s) => s.cursorRow);
   const cursorCol = useEditorStore((s) => s.cursorCol);
-  const grid = useEditorStore((s) => s.grid);
+  const grid = useEditorStore((s) => s.renderedGrid);
 
   const toolLabel = toolMap[activeTool]?.label ?? activeTool;
 

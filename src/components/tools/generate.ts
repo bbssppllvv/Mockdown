@@ -39,9 +39,9 @@ function buildSelectionPreview(start: GridPos, end: GridPos): PreviewCell[] {
   return cells;
 }
 
-export const magicTool: DrawingTool = {
-  id: 'magic',
-  label: 'Magic',
+export const generateTool: DrawingTool = {
+  id: 'generate',
+  label: 'Generate',
   icon: 'Wand2',
 
   onDragStart(_pos: GridPos) {
@@ -52,7 +52,7 @@ export const magicTool: DrawingTool = {
     return buildSelectionPreview(start, current);
   },
 
-  // onDragEnd returns null — the mouse hook handles magic specially
+  // onDragEnd returns null -- the mouse hook handles generate specially
   onDragEnd() {
     return null;
   },

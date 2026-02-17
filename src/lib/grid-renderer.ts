@@ -2,13 +2,15 @@ import { CharGrid } from './grid-model';
 import {
   FONT_FAMILY,
   FONT_SIZE,
-  GRID_LINE_COLOR,
-  GRID_BG_COLOR,
-  CHAR_COLOR,
-  CURSOR_COLOR,
-  PREVIEW_COLOR,
+  LIGHT_COLORS,
+  ThemeColors,
 } from './constants';
-import { Selection } from '@/hooks/use-editor-store';
+export interface SelectionRect {
+  minRow: number;
+  maxRow: number;
+  minCol: number;
+  maxCol: number;
+}
 
 export interface RenderConfig {
   cellWidth: number;
@@ -38,7 +40,7 @@ export function measureCellSize(ctx: CanvasRenderingContext2D): {
   return { width, height };
 }
 
-export interface MagicSelectionRect {
+export interface GenerateSelectionRect {
   minRow: number;
   maxRow: number;
   minCol: number;
@@ -53,20 +55,24 @@ export function drawGrid(
   preview: PreviewCell[] | null,
   cursorVisible: boolean,
   hoverPos: CursorPos | null = null,
-  magicSelection: MagicSelectionRect | null = null,
-  selection: Selection | null = null
+  generateSelection: GenerateSelectionRect | null = null,
+  selection: SelectionRect | null = null,
+  colors: ThemeColors = LIGHT_COLORS
 ): void {
   const { cellWidth, cellHeight, showGridLines } = config;
   const totalWidth = grid.cols * cellWidth;
   const totalHeight = grid.rows * cellHeight;
+  const a = colors.accentRgb;
+  // Opacity multiplier: dark backgrounds need stronger overlays to be visible
+  const om = colors.dark ? 2 : 1;
 
   // Background
-  ctx.fillStyle = GRID_BG_COLOR;
+  ctx.fillStyle = colors.gridBg;
   ctx.fillRect(0, 0, totalWidth, totalHeight);
 
   // Grid lines
   if (showGridLines) {
-    ctx.strokeStyle = GRID_LINE_COLOR;
+    ctx.strokeStyle = colors.gridLine;
     ctx.lineWidth = 0.5;
     ctx.beginPath();
     for (let c = 0; c <= grid.cols; c++) {
@@ -84,7 +90,7 @@ export function drawGrid(
 
   // Characters
   ctx.font = `${FONT_SIZE}px ${FONT_FAMILY}`;
-  ctx.fillStyle = CHAR_COLOR;
+  ctx.fillStyle = colors.char;
   ctx.textBaseline = 'middle';
   for (let r = 0; r < grid.rows; r++) {
     for (let c = 0; c < grid.cols; c++) {
@@ -101,9 +107,9 @@ export function drawGrid(
   if (preview && preview.length > 0) {
     const isErase = preview.every((c) => c.char === ' ');
 
-    const tintBg = isErase ? 'rgba(239, 68, 68, 0.08)' : 'rgba(37, 99, 235, 0.06)';
-    const tintBorder = isErase ? 'rgba(239, 68, 68, 0.4)' : 'rgba(37, 99, 235, 0.3)';
-    const tintChar = isErase ? 'rgba(239, 68, 68, 0.55)' : 'rgba(37, 99, 235, 0.45)';
+    const tintBg = isErase ? `rgba(239, 68, 68, ${0.08 * om})` : `rgba(${a}, ${0.06 * om})`;
+    const tintBorder = isErase ? `rgba(239, 68, 68, ${0.4 * om})` : `rgba(${a}, ${0.3 * om})`;
+    const tintChar = isErase ? `rgba(239, 68, 68, ${0.55 * om})` : `rgba(${a}, ${0.45 * om})`;
 
     let minRow = Infinity, maxRow = -Infinity, minCol = Infinity, maxCol = -Infinity;
     for (const cell of preview) {
@@ -141,7 +147,7 @@ export function drawGrid(
 
     if (isErase) {
       ctx.save();
-      ctx.strokeStyle = 'rgba(239, 68, 68, 0.3)';
+      ctx.strokeStyle = `rgba(239, 68, 68, ${0.3 * om})`;
       ctx.lineWidth = 1;
       for (const cell of preview) {
         const existing = grid.getChar(cell.row, cell.col);
@@ -160,7 +166,7 @@ export function drawGrid(
 
   // Hover highlight
   if (hoverPos && hoverPos.row >= 0 && hoverPos.row < grid.rows && hoverPos.col >= 0 && hoverPos.col < grid.cols) {
-    ctx.fillStyle = 'rgba(37, 99, 235, 0.06)';
+    ctx.fillStyle = `rgba(${a}, ${0.06 * om})`;
     ctx.fillRect(
       hoverPos.col * cellWidth,
       hoverPos.row * cellHeight,
@@ -169,18 +175,18 @@ export function drawGrid(
     );
   }
 
-  // Magic selection highlight
-  if (magicSelection) {
-    const mx = magicSelection.minCol * cellWidth;
-    const my = magicSelection.minRow * cellHeight;
-    const mw = (magicSelection.maxCol - magicSelection.minCol + 1) * cellWidth;
-    const mh = (magicSelection.maxRow - magicSelection.minRow + 1) * cellHeight;
+  // Generate selection highlight
+  if (generateSelection) {
+    const mx = generateSelection.minCol * cellWidth;
+    const my = generateSelection.minRow * cellHeight;
+    const mw = (generateSelection.maxCol - generateSelection.minCol + 1) * cellWidth;
+    const mh = (generateSelection.maxRow - generateSelection.minRow + 1) * cellHeight;
 
-    ctx.fillStyle = 'rgba(37, 99, 235, 0.06)';
+    ctx.fillStyle = `rgba(${a}, ${0.06 * om})`;
     ctx.fillRect(mx, my, mw, mh);
 
     ctx.save();
-    ctx.strokeStyle = 'rgba(37, 99, 235, 0.5)';
+    ctx.strokeStyle = `rgba(${a}, ${0.5 * om})`;
     ctx.lineWidth = 1.5;
     ctx.setLineDash([5, 4]);
     ctx.strokeRect(mx + 0.5, my + 0.5, mw - 1, mh - 1);
@@ -189,28 +195,27 @@ export function drawGrid(
 
   // Object selection highlight (select tool)
   if (selection) {
-    const sb = selection.bounds;
-    const sx = sb.minCol * cellWidth;
-    const sy = sb.minRow * cellHeight;
-    const sw = (sb.maxCol - sb.minCol + 1) * cellWidth;
-    const sh = (sb.maxRow - sb.minRow + 1) * cellHeight;
+    const sx = selection.minCol * cellWidth;
+    const sy = selection.minRow * cellHeight;
+    const sw = (selection.maxCol - selection.minCol + 1) * cellWidth;
+    const sh = (selection.maxRow - selection.minRow + 1) * cellHeight;
 
     // Blue tint background
-    ctx.fillStyle = 'rgba(37, 99, 235, 0.08)';
+    ctx.fillStyle = `rgba(${a}, ${0.08 * om})`;
     ctx.fillRect(sx, sy, sw, sh);
 
-    // Solid blue border (not dashed — distinguishes from magic selection)
+    // Solid blue border (not dashed — distinguishes from generate selection)
     ctx.save();
-    ctx.strokeStyle = 'rgba(37, 99, 235, 0.6)';
+    ctx.strokeStyle = `rgba(${a}, ${0.6 * om})`;
     ctx.lineWidth = 1.5;
     ctx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
     ctx.restore();
 
-    // Corner handles for box type
-    if (selection.type === 'box') {
+    // Corner handles for all selection types
+    {
       const handleSize = 6;
       const half = handleSize / 2;
-      ctx.fillStyle = 'rgba(37, 99, 235, 0.9)';
+      ctx.fillStyle = `rgba(${a}, 0.9)`;
 
       const corners = [
         { x: sx, y: sy },                     // top-left
@@ -230,7 +235,7 @@ export function drawGrid(
     const cx = cursor.col * cellWidth;
     const cy = cursor.row * cellHeight + 2;
     const ch = cellHeight - 4;
-    ctx.fillStyle = CURSOR_COLOR;
+    ctx.fillStyle = colors.cursor;
     ctx.fillRect(cx, cy, 2, ch);
   }
 }

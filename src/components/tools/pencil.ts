@@ -2,6 +2,9 @@ import { DrawingTool, GridPos, PreviewCell } from './types';
 import { CharGrid } from '@/lib/grid-model';
 import { SparseCell } from '@/lib/scene/types';
 
+const PENCIL_CHAR = '\u2588';
+
+/** Bresenham line interpolation between two grid positions. */
 function interpolate(r0: number, c0: number, r1: number, c1: number): { row: number; col: number }[] {
   const cells: { row: number; col: number }[] = [];
   const dr = Math.abs(r1 - r0);
@@ -23,23 +26,22 @@ function interpolate(r0: number, c0: number, r1: number, c1: number): { row: num
   return cells;
 }
 
-export const eraserTool: DrawingTool = {
-  id: 'eraser',
-  label: 'Eraser',
-  icon: 'Eraser',
+export const pencilTool: DrawingTool = {
+  id: 'pencil',
+  label: 'Pencil',
+  icon: 'Pencil',
   continuous: true,
 
-  onDragStart(pos: GridPos, grid: CharGrid): PreviewCell[] | null {
-    if (grid.getChar(pos.row, pos.col) === ' ') return null;
-    return [{ row: pos.row, col: pos.col, char: ' ' }];
+  onDragStart(pos: GridPos): PreviewCell[] | null {
+    return [{ row: pos.row, col: pos.col, char: PENCIL_CHAR }];
   },
 
   onContinuousDrag(prev: GridPos, current: GridPos, _grid: CharGrid, accumulator: SparseCell[]): PreviewCell[] | null {
     const path = interpolate(prev.row, prev.col, current.row, current.col);
     const preview: PreviewCell[] = [];
     for (const p of path) {
-      accumulator.push({ row: p.row, col: p.col, char: ' ' });
-      preview.push({ row: p.row, col: p.col, char: ' ' });
+      accumulator.push({ row: p.row, col: p.col, char: PENCIL_CHAR });
+      preview.push({ row: p.row, col: p.col, char: PENCIL_CHAR });
     }
     return preview;
   },

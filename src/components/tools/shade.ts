@@ -2,6 +2,15 @@ import { DrawingTool, GridPos, PreviewCell } from './types';
 import { CharGrid } from '@/lib/grid-model';
 import { SparseCell } from '@/lib/scene/types';
 
+const SHADE_LEVELS = [' ', '\u2591', '\u2592', '\u2593', '\u2588'];
+
+function nextShade(current: string): string {
+  const idx = SHADE_LEVELS.indexOf(current);
+  if (idx === -1) return SHADE_LEVELS[1]; // non-shade char -> start from light shade
+  if (idx >= SHADE_LEVELS.length - 1) return current; // already at max
+  return SHADE_LEVELS[idx + 1];
+}
+
 function interpolate(r0: number, c0: number, r1: number, c1: number): { row: number; col: number }[] {
   const cells: { row: number; col: number }[] = [];
   const dr = Math.abs(r1 - r0);
@@ -23,23 +32,24 @@ function interpolate(r0: number, c0: number, r1: number, c1: number): { row: num
   return cells;
 }
 
-export const eraserTool: DrawingTool = {
-  id: 'eraser',
-  label: 'Eraser',
-  icon: 'Eraser',
+export const shadeTool: DrawingTool = {
+  id: 'shade',
+  label: 'Shade',
+  icon: 'Contrast',
   continuous: true,
 
   onDragStart(pos: GridPos, grid: CharGrid): PreviewCell[] | null {
-    if (grid.getChar(pos.row, pos.col) === ' ') return null;
-    return [{ row: pos.row, col: pos.col, char: ' ' }];
+    const existing = grid.getChar(pos.row, pos.col);
+    return [{ row: pos.row, col: pos.col, char: nextShade(existing) }];
   },
 
-  onContinuousDrag(prev: GridPos, current: GridPos, _grid: CharGrid, accumulator: SparseCell[]): PreviewCell[] | null {
+  onContinuousDrag(prev: GridPos, current: GridPos, grid: CharGrid, accumulator: SparseCell[]): PreviewCell[] | null {
     const path = interpolate(prev.row, prev.col, current.row, current.col);
     const preview: PreviewCell[] = [];
     for (const p of path) {
-      accumulator.push({ row: p.row, col: p.col, char: ' ' });
-      preview.push({ row: p.row, col: p.col, char: ' ' });
+      const ch = nextShade(grid.getChar(p.row, p.col));
+      accumulator.push({ row: p.row, col: p.col, char: ch });
+      preview.push({ row: p.row, col: p.col, char: ch });
     }
     return preview;
   },

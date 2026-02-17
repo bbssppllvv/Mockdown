@@ -1,12 +1,9 @@
-import { DrawingTool, GridPos, PreviewCell, DrawResult } from './types';
+import { DrawingTool, GridPos, PreviewCell, ToolResult } from './types';
 import { CharGrid } from '@/lib/grid-model';
 import { BOX } from '@/lib/box-chars';
+import { SparseCell } from '@/lib/scene/types';
 
-function buildImage(
-  start: GridPos,
-  end: GridPos,
-  grid: CharGrid
-): { row: number; col: number; char: string }[] {
+function buildImageCells(start: GridPos, end: GridPos): { row: number; col: number; char: string }[] {
   const minR = Math.min(start.row, end.row);
   const maxR = Math.max(start.row, end.row);
   const minC = Math.min(start.col, end.col);
@@ -84,18 +81,59 @@ export const imageTool: DrawingTool = {
   label: 'Image',
   icon: 'Image',
 
+  onClick(pos: GridPos): ToolResult {
+    const allCells = buildImageCells(pos, { row: pos.row + 5, col: pos.col + 9 });
+    const relativeCells: SparseCell[] = allCells.map(c => ({
+      row: c.row - pos.row,
+      col: c.col - pos.col,
+      char: c.char,
+    }));
+    return {
+      kind: 'create',
+      node: {
+        type: 'stroke',
+        name: 'Image',
+        bounds: { x: pos.col, y: pos.row, width: 10, height: 6 },
+        cells: relativeCells,
+      },
+    };
+  },
+
   onDragStart(_pos: GridPos) {
     return [];
   },
 
-  onDrag(start: GridPos, current: GridPos, grid: CharGrid): PreviewCell[] | null {
-    const cells = buildImage(start, current, grid);
-    return cells.map((c) => ({ row: c.row, col: c.col, char: c.char }));
+  onDrag(start: GridPos, current: GridPos): PreviewCell[] | null {
+    if (start.row === current.row && start.col === current.col) {
+      return buildImageCells(start, { row: start.row + 5, col: start.col + 9 });
+    }
+    return buildImageCells(start, current);
   },
 
-  onDragEnd(start: GridPos, end: GridPos, grid: CharGrid): DrawResult | null {
-    const chars = buildImage(start, end, grid);
-    if (chars.length === 0) return null;
-    return { chars };
+  onDragEnd(start: GridPos, end: GridPos): ToolResult {
+    const allCells = buildImageCells(start, end);
+    if (allCells.length === 0) return null;
+
+    const minR = Math.min(start.row, end.row);
+    const maxR = Math.max(start.row, end.row);
+    const minC = Math.min(start.col, end.col);
+    const maxC = Math.max(start.col, end.col);
+
+    // Convert to relative SparseCell for StrokeNode
+    const relativeCells: SparseCell[] = allCells.map(c => ({
+      row: c.row - minR,
+      col: c.col - minC,
+      char: c.char,
+    }));
+
+    return {
+      kind: 'create',
+      node: {
+        type: 'stroke',
+        name: 'Image',
+        bounds: { x: minC, y: minR, width: maxC - minC + 1, height: maxR - minR + 1 },
+        cells: relativeCells,
+      },
+    };
   },
 };

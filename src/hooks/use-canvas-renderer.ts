@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { drawGrid, measureCellSize, RenderConfig } from '@/lib/grid-renderer';
+import { drawGrid, measureCellSize, RenderConfig, SelectionRect } from '@/lib/grid-renderer';
 import { useEditorStore } from './use-editor-store';
-import { FONT_FAMILY, FONT_SIZE, DEFAULT_CELL_WIDTH, DEFAULT_CELL_HEIGHT } from '@/lib/constants';
+import { FONT_FAMILY, FONT_SIZE, DEFAULT_CELL_WIDTH, DEFAULT_CELL_HEIGHT, LIGHT_COLORS, DARK_COLORS } from '@/lib/constants';
 
 export function useCanvasRenderer() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -66,14 +66,15 @@ export function useCanvasRenderer() {
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
+    const grid = store.renderedGrid;
     const config: RenderConfig = {
       cellWidth: cellSize.width,
       cellHeight: cellSize.height,
       showGridLines: store.showGridLines,
     };
 
-    const totalWidth = store.grid.cols * config.cellWidth;
-    const totalHeight = store.grid.rows * config.cellHeight;
+    const totalWidth = grid.cols * config.cellWidth;
+    const totalHeight = grid.rows * config.cellHeight;
 
     canvas.width = totalWidth * dpr;
     canvas.height = totalHeight * dpr;
@@ -81,10 +82,26 @@ export function useCanvasRenderer() {
     canvas.style.height = `${totalHeight}px`;
     ctx.scale(dpr, dpr);
 
+    // Compute selection rect from selectedIds
+    let selectionRect: SelectionRect | null = null;
+    if (store.selectedIds.length > 0) {
+      let minRow = Infinity, maxRow = -Infinity, minCol = Infinity, maxCol = -Infinity;
+      for (const id of store.selectedIds) {
+        const node = store.document.nodes.get(id);
+        if (!node) continue;
+        minRow = Math.min(minRow, node.bounds.y);
+        maxRow = Math.max(maxRow, node.bounds.y + node.bounds.height - 1);
+        minCol = Math.min(minCol, node.bounds.x);
+        maxCol = Math.max(maxCol, node.bounds.x + node.bounds.width - 1);
+      }
+      if (minRow <= maxRow) selectionRect = { minRow, maxRow, minCol, maxCol };
+    }
+
     const cursor = { row: store.cursorRow, col: store.cursorCol };
     const hover = store.hoverRow >= 0 ? { row: store.hoverRow, col: store.hoverCol } : null;
-    drawGrid(ctx, store.grid, config, cursor, store.preview, cursorVisible, hover, store.magicSelection, store.selection);
-  }, [store.grid, store.cursorRow, store.cursorCol, store.hoverRow, store.hoverCol, store.preview, store.showGridLines, store.magicSelection, store.selection, cellSize, cursorVisible]);
+    const themeColors = store.theme === 'dark' ? DARK_COLORS : LIGHT_COLORS;
+    drawGrid(ctx, grid, config, cursor, store.preview, cursorVisible, hover, store.generateSelection, selectionRect, themeColors);
+  }, [store.renderedGrid, store.cursorRow, store.cursorCol, store.hoverRow, store.hoverCol, store.preview, store.showGridLines, store.generateSelection, store.selectedIds, store.document, store.theme, cellSize, cursorVisible]);
 
   // Re-render on state changes
   useEffect(() => {

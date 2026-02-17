@@ -1,36 +1,34 @@
 import { DrawingTool, GridPos, PreviewCell, ToolResult } from './types';
 
-const DEFAULT_LABEL = 'Option';
-const MIN_WIDTH = 8;
+const DEFAULT_LABEL = 'Label';
 
-function buildDropdownPreview(row: number, col: number, width: number, label: string): PreviewCell[] {
-  const w = Math.max(width, 8); // minimum "[▾ Op ]"
-  const inner = w - 4; // "[▾ " + "]"
-  const padded = label.slice(0, inner).padEnd(inner, ' ');
-  const str = `[▾ ${padded}]`;
+function buildTogglePreview(row: number, col: number, width: number, label: string, on: boolean): PreviewCell[] {
+  const toggle = on ? '[━●]' : '[●━]';
+  const str = `${toggle} ${label}`;
+  const w = Math.max(width, str.length);
   const cells: PreviewCell[] = [];
-  for (let i = 0; i < str.length; i++) {
-    cells.push({ row, col: col + i, char: str[i] });
+  for (let i = 0; i < w; i++) {
+    cells.push({ row, col: col + i, char: i < str.length ? str[i] : ' ' });
   }
   return cells;
 }
 
-export const dropdownTool: DrawingTool = {
-  id: 'dropdown',
-  label: 'Dropdown',
-  icon: 'ChevronDown',
+export const toggleTool: DrawingTool = {
+  id: 'toggle',
+  label: 'Toggle',
+  icon: 'ToggleLeft',
   needsTextInput: true,
 
   onClick(pos: GridPos): ToolResult {
-    const padded = DEFAULT_LABEL.padEnd(10, ' ');
-    const str = `[▾ ${padded}]`;
+    const str = `[●━] ${DEFAULT_LABEL}`;
     return {
       kind: 'create',
       node: {
-        type: 'dropdown',
-        name: 'Dropdown',
+        type: 'toggle',
+        name: 'Toggle',
         bounds: { x: pos.col, y: pos.row, width: str.length, height: 1 },
         label: DEFAULT_LABEL,
+        on: false,
       },
     };
   },
@@ -41,42 +39,39 @@ export const dropdownTool: DrawingTool = {
     const minR = Math.min(start.row, current.row);
     const minC = Math.min(start.col, current.col);
     const maxC = Math.max(start.col, current.col);
-    if (start.row === current.row && start.col === current.col) {
-      const padded = DEFAULT_LABEL.padEnd(10, ' ');
-      return buildDropdownPreview(minR, minC, `[▾ ${padded}]`.length, DEFAULT_LABEL);
-    }
-    const w = Math.max(maxC - minC + 1, MIN_WIDTH);
-    return buildDropdownPreview(minR, minC, w, DEFAULT_LABEL);
+    const w = Math.max(maxC - minC + 1, (`[●━] ${DEFAULT_LABEL}`).length);
+    return buildTogglePreview(minR, minC, w, DEFAULT_LABEL, false);
   },
 
   onDragEnd(start: GridPos, end: GridPos): ToolResult {
     const minR = Math.min(start.row, end.row);
     const minC = Math.min(start.col, end.col);
     const maxC = Math.max(start.col, end.col);
-    const w = Math.max(maxC - minC + 1, MIN_WIDTH);
-
+    const str = `[●━] ${DEFAULT_LABEL}`;
+    const w = Math.max(maxC - minC + 1, str.length);
     return {
       kind: 'create',
       node: {
-        type: 'dropdown',
-        name: 'Dropdown',
+        type: 'toggle',
+        name: 'Toggle',
         bounds: { x: minC, y: minR, width: w, height: 1 },
         label: DEFAULT_LABEL,
+        on: false,
       },
     };
   },
 
   onTextInput(pos: GridPos, text: string): ToolResult {
     const label = text || DEFAULT_LABEL;
-    const padded = label.padEnd(10, ' ');
-    const str = `[▾ ${padded}]`;
+    const str = `[●━] ${label}`;
     return {
       kind: 'create',
       node: {
-        type: 'dropdown',
-        name: 'Dropdown',
+        type: 'toggle',
+        name: 'Toggle',
         bounds: { x: pos.col, y: pos.row, width: str.length, height: 1 },
         label,
+        on: false,
       },
     };
   },

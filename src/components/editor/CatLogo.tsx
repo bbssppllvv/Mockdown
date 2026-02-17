@@ -156,8 +156,8 @@ export function CatLogo() {
   const isDrawing = useEditorStore((s) => s.isDrawing);
   const activeTool = useEditorStore((s) => s.activeTool);
 
-  /* base mood — only for magic tool (sparkly eyes) */
-  const baseMood = activeTool === 'magic' ? 'magic' : 'idle';
+  /* base mood — only for generate tool (sparkly eyes) */
+  const baseMood = activeTool === 'generate' ? 'magic' : 'idle';
 
   /* ── Mark interaction (resets sleep) ── */
   const poke = useCallback(() => {

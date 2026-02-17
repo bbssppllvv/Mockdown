@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Wand2, Loader2, X } from 'lucide-react';
 import { useEditorStore } from '@/hooks/use-editor-store';
-import { generateMagicContent } from '@/lib/ai';
+import { streamGenerateContent, postProcessGenerate } from '@/lib/ai';
 
 const EMPTY_SUGGESTIONS = [
   'Sign-in form',
@@ -23,22 +23,24 @@ const CONTENT_SUGGESTIONS = [
   'Redesign from scratch',
 ];
 
-export function MagicPrompt({ cellWidth, cellHeight }: { cellWidth: number; cellHeight: number }) {
-  const magicSelection = useEditorStore((s) => s.magicSelection);
-  const magicLoading = useEditorStore((s) => s.magicLoading);
-  const setMagicLoading = useEditorStore((s) => s.setMagicLoading);
-  const clearMagic = useEditorStore((s) => s.clearMagic);
+export function GeneratePrompt() {
+  const generateSelection = useEditorStore((s) => s.generateSelection);
+  const generateLoading = useEditorStore((s) => s.generateLoading);
+  const setGenerateLoading = useEditorStore((s) => s.setGenerateLoading);
+  const clearGenerate = useEditorStore((s) => s.clearGenerate);
   const pushUndo = useEditorStore((s) => s.pushUndo);
   const applyChars = useEditorStore((s) => s.applyChars);
-  const grid = useEditorStore((s) => s.grid);
+  const setCharsRaw = useEditorStore((s) => s.setCharsRaw);
+  const grid = useEditorStore((s) => s.renderedGrid);
 
   const [prompt, setPrompt] = useState('');
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const existingContent = useMemo(() => {
-    if (!magicSelection) return '';
-    const { minRow, maxRow, minCol, maxCol } = magicSelection;
+    if (!generateSelection) return '';
+    const { minRow, maxRow, minCol, maxCol } = generateSelection;
     const lines: string[] = [];
     for (let r = minRow; r <= maxRow; r++) {
       let line = '';
@@ -48,65 +50,77 @@ export function MagicPrompt({ cellWidth, cellHeight }: { cellWidth: number; cell
       lines.push(line);
     }
     return lines.join('\n');
-  }, [magicSelection, grid]);
+  }, [generateSelection, grid]);
 
   const hasContent = useMemo(() => existingContent.trim().length > 0, [existingContent]);
   const suggestions = hasContent ? CONTENT_SUGGESTIONS : EMPTY_SUGGESTIONS;
 
   useEffect(() => {
-    if (magicSelection && inputRef.current) {
+    if (generateSelection && inputRef.current) {
       inputRef.current.focus();
       setPrompt('');
       setError('');
     }
-  }, [magicSelection]);
+  }, [generateSelection]);
 
-  if (!magicSelection) return null;
+  if (!generateSelection) return null;
 
-  const { minRow, maxRow, minCol, maxCol } = magicSelection;
+  const { minRow, maxRow, minCol, maxCol } = generateSelection;
   const width = maxCol - minCol + 1;
   const height = maxRow - minRow + 1;
 
-  const top = (maxRow + 1) * cellHeight + 4;
-  const left = minCol * cellWidth;
-
   const handleSubmit = async (overridePrompt?: string) => {
     const finalPrompt = overridePrompt ?? prompt;
-    if (!finalPrompt.trim()) return;
+    if (!finalPrompt.trim() || generateLoading) return;
 
     setError('');
-    setMagicLoading(true);
+    setGenerateLoading(true);
+    pushUndo();
+
+    // Clear selection area
+    const clearChars: { row: number; col: number; char: string }[] = [];
+    for (let r = minRow; r <= maxRow; r++) {
+      for (let c = minCol; c <= maxCol; c++) {
+        clearChars.push({ row: r, col: c, char: ' ' });
+      }
+    }
+    setCharsRaw(clearChars);
+
+    abortRef.current = new AbortController();
 
     try {
-      const result = await generateMagicContent(
+      const fullText = await streamGenerateContent(
         finalPrompt,
         width,
         height,
-        hasContent ? existingContent : undefined
+        (lineIndex, fittedLine) => {
+          // Progressive rendering: write each line without junction resolution
+          const lineChars: { row: number; col: number; char: string }[] = [];
+          for (let j = 0; j < fittedLine.length && j < width; j++) {
+            lineChars.push({ row: minRow + lineIndex, col: minCol + j, char: fittedLine[j] });
+          }
+          setCharsRaw(lineChars);
+        },
+        hasContent ? existingContent : undefined,
+        abortRef.current.signal,
       );
 
-      const lines = result.split('\n');
-      pushUndo();
-
-      const chars: { row: number; col: number; char: string }[] = [];
-      for (let r = minRow; r <= maxRow; r++) {
-        for (let c = minCol; c <= maxCol; c++) {
-          chars.push({ row: r, col: c, char: ' ' });
+      // Final pass: post-process full text and apply with junction resolution
+      const lines = postProcessGenerate(fullText, width, height);
+      const finalChars: { row: number; col: number; char: string }[] = [];
+      for (let i = 0; i < lines.length; i++) {
+        for (let j = 0; j < lines[i].length && j < width; j++) {
+          finalChars.push({ row: minRow + i, col: minCol + j, char: lines[i][j] });
         }
       }
-      for (let i = 0; i < lines.length && i < height; i++) {
-        const line = lines[i];
-        for (let j = 0; j < line.length && j < width; j++) {
-          chars.push({ row: minRow + i, col: minCol + j, char: line[j] });
-        }
-      }
-
-      applyChars(chars);
-      clearMagic();
+      applyChars(finalChars);
+      clearGenerate();
     } catch (err) {
+      if ((err as Error).name === 'AbortError') return;
       setError(err instanceof Error ? err.message : 'Generation failed');
     } finally {
-      setMagicLoading(false);
+      setGenerateLoading(false);
+      abortRef.current = null;
     }
   };
 
@@ -116,24 +130,22 @@ export function MagicPrompt({ cellWidth, cellHeight }: { cellWidth: number; cell
       handleSubmit();
     }
     if (e.key === 'Escape') {
-      clearMagic();
+      abortRef.current?.abort();
+      clearGenerate();
     }
   };
 
   return (
-    <div
-      className="absolute z-20"
-      style={{ top, left }}
-    >
-      <div className="w-60 bg-background border border-border/60 rounded-lg shadow-xl p-2.5 flex flex-col gap-2">
+    <div className="fixed z-50 inset-0 flex items-center justify-center pointer-events-none">
+      <div className="w-60 bg-background border border-border/60 rounded-lg shadow-xl p-2.5 flex flex-col gap-2 pointer-events-auto">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-[#2563eb]">
             <Wand2 className="h-3.5 w-3.5" />
-            Magic {width}&times;{height}
+            Generate {width}&times;{height}
           </div>
           <button
-            onClick={clearMagic}
+            onClick={() => { abortRef.current?.abort(); clearGenerate(); }}
             className="p-0.5 rounded-lg text-foreground/30 hover:text-foreground hover:bg-foreground/5 transition-colors"
           >
             <X className="h-3.5 w-3.5" />
@@ -149,20 +161,20 @@ export function MagicPrompt({ cellWidth, cellHeight }: { cellWidth: number; cell
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={magicLoading}
+            disabled={generateLoading}
             className="flex-1 h-7 px-2 text-xs border border-border/60 rounded-lg bg-background text-foreground placeholder:text-foreground/30 disabled:opacity-50"
           />
           <button
             onClick={() => handleSubmit()}
-            disabled={magicLoading || !prompt.trim()}
+            disabled={generateLoading || !prompt.trim()}
             className="h-7 w-7 flex items-center justify-center rounded-lg bg-[#2563eb] text-white hover:bg-[#2563eb]/90 transition-colors disabled:opacity-30 disabled:pointer-events-none"
           >
-            {magicLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+            {generateLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
           </button>
         </div>
 
         {/* Suggestions — vertical stack */}
-        {!magicLoading && (
+        {!generateLoading && (
           <div className="flex flex-col gap-0.5">
             {suggestions.map((s) => (
               <button
@@ -177,7 +189,7 @@ export function MagicPrompt({ cellWidth, cellHeight }: { cellWidth: number; cell
         )}
 
         {/* Loading */}
-        {magicLoading && (
+        {generateLoading && (
           <div className="flex items-center gap-2 px-1 text-xs text-foreground/40">
             <Loader2 className="h-3.5 w-3.5 animate-spin text-[#2563eb]" />
             Generating...

@@ -1,32 +1,42 @@
 import { DrawingTool, GridPos, PreviewCell, ToolResult } from './types';
 
-const MIN_WIDTH = 4;
-const DEFAULT_WIDTH = 13;
+const DEFAULT_VALUE = 60;
+const MIN_WIDTH = 10;
+const DEFAULT_WIDTH = 20;
 
-function buildInputPreview(row: number, col: number, width: number): PreviewCell[] {
-  const w = Math.max(width, 4); // minimum "[__]"
+function buildProgressPreview(row: number, col: number, width: number, value: number): PreviewCell[] {
+  const w = Math.max(width, 10);
+  const pct = Math.max(0, Math.min(100, value));
+  const label = ` ${pct}%`;
+  const barWidth = w - 2 - label.length;
+  if (barWidth < 2) return [];
+
+  const filled = Math.round((pct / 100) * barWidth);
   const cells: PreviewCell[] = [];
   cells.push({ row, col, char: '[' });
-  cells.push({ row, col: col + w - 1, char: ']' });
-  for (let c = col + 1; c < col + w - 1; c++) {
-    cells.push({ row, col: c, char: '_' });
+  for (let i = 0; i < barWidth; i++) {
+    cells.push({ row, col: col + 1 + i, char: i < filled ? '█' : '░' });
+  }
+  cells.push({ row, col: col + 1 + barWidth, char: ']' });
+  for (let i = 0; i < label.length; i++) {
+    cells.push({ row, col: col + 2 + barWidth + i, char: label[i] });
   }
   return cells;
 }
 
-export const inputFieldTool: DrawingTool = {
-  id: 'input',
-  label: 'Input',
-  icon: 'TextCursorInput',
+export const progressTool: DrawingTool = {
+  id: 'progress',
+  label: 'Progress',
+  icon: 'Loader',
 
   onClick(pos: GridPos): ToolResult {
     return {
       kind: 'create',
       node: {
-        type: 'input',
-        name: 'Input',
+        type: 'progress',
+        name: 'Progress',
         bounds: { x: pos.col, y: pos.row, width: DEFAULT_WIDTH, height: 1 },
-        placeholder: '',
+        value: DEFAULT_VALUE,
       },
     };
   },
@@ -38,10 +48,10 @@ export const inputFieldTool: DrawingTool = {
     const minC = Math.min(start.col, current.col);
     const maxC = Math.max(start.col, current.col);
     if (start.row === current.row && start.col === current.col) {
-      return buildInputPreview(minR, minC, DEFAULT_WIDTH);
+      return buildProgressPreview(minR, minC, DEFAULT_WIDTH, DEFAULT_VALUE);
     }
     const w = Math.max(maxC - minC + 1, MIN_WIDTH);
-    return buildInputPreview(minR, minC, w);
+    return buildProgressPreview(minR, minC, w, DEFAULT_VALUE);
   },
 
   onDragEnd(start: GridPos, end: GridPos): ToolResult {
@@ -53,10 +63,10 @@ export const inputFieldTool: DrawingTool = {
     return {
       kind: 'create',
       node: {
-        type: 'input',
-        name: 'Input',
+        type: 'progress',
+        name: 'Progress',
         bounds: { x: minC, y: minR, width: w, height: 1 },
-        placeholder: '',
+        value: DEFAULT_VALUE,
       },
     };
   },
