@@ -51,7 +51,7 @@ export function Editor() {
 
         {/* Sidebar: always visible on md+, toggleable overlay on mobile */}
         <div className={`
-          fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-out md:static md:translate-x-0
+          fixed inset-y-0 left-0 z-50 h-full transition-transform duration-200 ease-out md:static md:translate-x-0
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}>
           <Toolbar onToolSelect={() => setSidebarOpen(false)} />

@@ -192,7 +192,7 @@ export function Toolbar({ onToolSelect }: { onToolSelect?: () => void } = {}) {
   };
 
   return (
-    <aside className="flex flex-col w-[192px] min-w-[192px] border-r border-border/60 bg-background select-none overflow-y-auto">
+    <aside className="flex flex-col w-[192px] min-w-[192px] h-full border-r border-border/60 bg-background select-none overflow-y-auto">
       <CatLogo />
 
       <div className="flex flex-col gap-4 px-2 pt-1 pb-4">
