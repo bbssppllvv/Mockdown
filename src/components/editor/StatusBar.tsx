@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { toolMap } from '@/components/tools/registry';
 import { GridSizeSelector } from './GridSizeSelector';
@@ -21,6 +22,9 @@ export function StatusBar() {
       </span>
       <div className="flex-1" />
       <GridSizeSelector />
+      <Link href="/about" className="hover:text-foreground/60 transition-colors">
+        About
+      </Link>
     </div>
   );
 }
