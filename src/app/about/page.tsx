@@ -509,6 +509,37 @@ export default function AboutPage() {
           </div>
         </WireCard>
 
+        {/* ── Author ── */}
+        <WireCard title="Made by">
+          <div className="flex items-start gap-4">
+            <div className="text-sm leading-relaxed" style={{ color: B }}>
+              <p>
+                <a
+                  href="https://x.com/bbssppllvv"
+                  className="font-bold hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Mike Bespalov
+                </a>
+                {' '}— Design + Code + AI.
+              </p>
+              <p className="mt-2">
+                Founder of{' '}
+                <a
+                  href="https://refero.design"
+                  className="font-bold hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Refero
+                </a>
+                {' '}(250K+ users). Ex-Clerk. Barcelona.
+              </p>
+            </div>
+          </div>
+        </WireCard>
+
         {/* ── CTA ── */}
         <WireCard title="Get Started">
           <div className="text-center py-4 space-y-4">

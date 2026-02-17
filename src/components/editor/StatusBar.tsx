@@ -25,6 +25,14 @@ export function StatusBar() {
       <Link href="/about" className="hover:text-foreground/60 transition-colors">
         About
       </Link>
+      <a
+        href="https://x.com/bbssppllvv"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="hover:text-foreground/60 transition-colors"
+      >
+        @bbssppllvv
+      </a>
     </div>
   );
 }
