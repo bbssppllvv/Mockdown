@@ -4,186 +4,287 @@ import Link from 'next/link';
 export const metadata: Metadata = {
   title: 'About Mockdown — Free ASCII Wireframe Editor',
   description:
-    'Mockdown is a free, browser-based ASCII wireframe editor for designers, developers, and product managers. Create lo-fi UI mockups, text diagrams, and rapid prototypes — no signup, no install.',
+    'Mockdown is a free, browser-based ASCII wireframe editor. 20+ drag-and-drop UI components — buttons, inputs, tables, modals, nav bars. Export as Markdown. No signup, works offline.',
   alternates: { canonical: '/about' },
   openGraph: {
     title: 'About Mockdown — Free ASCII Wireframe Editor',
     description:
-      'Create lo-fi UI mockups, text diagrams, and rapid prototypes in your browser. Free, instant, no signup.',
+      'ASCII wireframe editor in your browser. 20+ components, Markdown export, no signup. Sketch UI in plain text.',
     url: '/about',
   },
 };
 
+function Ascii({ children }: { children: string }) {
+  return (
+    <pre className="text-[13px] leading-snug text-foreground/70 select-none overflow-x-auto">
+      {children}
+    </pre>
+  );
+}
+
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <div className="text-[10px] uppercase tracking-[0.2em] text-foreground/30 font-bold mb-6">
+      {`// ${children}`}
+    </div>
+  );
+}
+
 export default function AboutPage() {
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="min-h-screen bg-background text-foreground font-mono">
+      {/* ── Nav ── */}
       <nav className="flex items-center justify-between px-6 py-4 border-b border-border/60">
         <Link href="/" className="font-bold text-lg tracking-tight">
           Mockdown
         </Link>
         <Link
           href="/"
-          className="text-sm font-medium px-4 py-2 rounded-lg bg-[#2979FF] text-white hover:bg-[#2563eb] transition-colors"
+          className="text-sm font-medium px-4 py-2 bg-[#2979FF] text-white hover:bg-[#2563eb] transition-colors"
         >
-          Open Editor
+          [ Open Editor ]
         </Link>
       </nav>
 
-      <article className="max-w-2xl mx-auto px-6 py-16 space-y-12">
-        <header className="space-y-4">
-          <h1 className="text-3xl font-bold tracking-tight">
-            ASCII Wireframe Editor for Rapid Prototyping
+      <article className="max-w-2xl mx-auto px-6 py-16">
+        {/* ── Hero ── */}
+        <header className="mb-20">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-[#2979FF] mb-6">
+            Wireframes that live
+            <br />
+            in plain text.
           </h1>
-          <p className="text-lg text-foreground/70 leading-relaxed">
-            Mockdown is a free, browser-based tool for creating UI wireframes
-            using ASCII art. Drag-and-drop components, draw freehand, and export
-            clean text mockups — all without leaving your browser.
+          <p className="text-lg text-foreground/60 leading-relaxed max-w-lg">
+            20+ UI components. Drag, drop, export as Markdown.
+            <br />
+            Open your browser — that&apos;s the install.
           </p>
         </header>
 
-        <section className="space-y-4">
-          <h2 className="text-xl font-bold tracking-tight">
-            Why ASCII Wireframes?
+        {/* ── Why ── */}
+        <section className="mb-20">
+          <SectionLabel>Why plain text</SectionLabel>
+          <h2 className="text-xl font-bold text-[#2979FF] mb-4">
+            Your mockup is a text file.
           </h2>
-          <p className="text-foreground/70 leading-relaxed">
-            ASCII wireframes are the fastest way to sketch UI ideas. They
-            live in plain text — paste them into GitHub issues, Slack messages,
-            code comments, or documentation. No image files, no design tool
-            licenses, no friction.
-          </p>
-          <p className="text-foreground/70 leading-relaxed">
-            Unlike pixel-perfect mockup tools, text wireframes keep the focus
-            on structure and flow. They&apos;re inherently lo-fi, which
-            means faster feedback cycles and less attachment to visual polish
-            during early exploration.
-          </p>
-        </section>
-
-        <section className="space-y-4">
-          <h2 className="text-xl font-bold tracking-tight">
-            What You Can Build
-          </h2>
-          <ul className="space-y-3 text-foreground/70">
-            <li className="flex gap-3 leading-relaxed">
-              <span className="text-[#2979FF] font-bold shrink-0">+</span>
-              <span>
-                <strong className="text-foreground">UI mockups</strong> —
-                buttons, inputs, dropdowns, modals, tables, tabs, navigation
-                bars, and 20+ other components
-              </span>
-            </li>
-            <li className="flex gap-3 leading-relaxed">
-              <span className="text-[#2979FF] font-bold shrink-0">+</span>
-              <span>
-                <strong className="text-foreground">Page layouts</strong> —
-                arrange components on an infinite canvas to prototype full
-                screens and user flows
-              </span>
-            </li>
-            <li className="flex gap-3 leading-relaxed">
-              <span className="text-[#2979FF] font-bold shrink-0">+</span>
-              <span>
-                <strong className="text-foreground">Text diagrams</strong> —
-                freehand drawing with pencil, brush, and spray tools for
-                flowcharts and architecture sketches
-              </span>
-            </li>
-            <li className="flex gap-3 leading-relaxed">
-              <span className="text-[#2979FF] font-bold shrink-0">+</span>
-              <span>
-                <strong className="text-foreground">Documentation assets</strong> —
-                export as Markdown and embed directly in READMEs, wikis, or
-                technical specs
-              </span>
-            </li>
-          </ul>
-        </section>
-
-        <section className="space-y-4">
-          <h2 className="text-xl font-bold tracking-tight">How It Works</h2>
-          <ol className="space-y-4 text-foreground/70">
-            <li className="flex gap-3 leading-relaxed">
-              <span className="text-[#2979FF] font-bold shrink-0">1.</span>
-              <span>
-                <strong className="text-foreground">Pick a component</strong>{' '}
-                from the toolbar — buttons, inputs, cards, tables, or any of
-                the 20+ built-in UI elements.
-              </span>
-            </li>
-            <li className="flex gap-3 leading-relaxed">
-              <span className="text-[#2979FF] font-bold shrink-0">2.</span>
-              <span>
-                <strong className="text-foreground">
-                  Draw on the canvas
-                </strong>{' '}
-                — click and drag to place components. Double-click any text to
-                edit it inline.
-              </span>
-            </li>
-            <li className="flex gap-3 leading-relaxed">
-              <span className="text-[#2979FF] font-bold shrink-0">3.</span>
-              <span>
-                <strong className="text-foreground">Export and share</strong> —
-                copy your wireframe as Markdown text and paste it anywhere:
-                GitHub, Notion, Slack, or your codebase.
-              </span>
-            </li>
-          </ol>
-        </section>
-
-        <section className="space-y-4">
-          <h2 className="text-xl font-bold tracking-tight">Who It&apos;s For</h2>
-          <div className="space-y-3 text-foreground/70">
-            <p className="leading-relaxed">
-              <strong className="text-foreground">Developers</strong> who
-              sketch UI in code comments and want a faster way to create text
-              mockups.
+          <div className="space-y-4 text-foreground/60 leading-relaxed">
+            <p>
+              Paste it in a GitHub issue. Drop it in Slack. Commit it with your
+              code. No screenshots, no broken image links, no &quot;can you
+              export that as PNG?&quot;
             </p>
-            <p className="leading-relaxed">
-              <strong className="text-foreground">Product managers</strong> who
-              need to communicate layout ideas quickly without waiting for a
-              designer.
-            </p>
-            <p className="leading-relaxed">
-              <strong className="text-foreground">Designers</strong> who want a
-              constraint-based tool for early-stage exploration before jumping
-              into Figma.
-            </p>
-            <p className="leading-relaxed">
-              <strong className="text-foreground">Technical writers</strong> who
-              embed interface diagrams in documentation and want them to stay
-              in plain text.
+            <p>
+              Text wireframes keep the conversation on structure, not color.
+              Feedback comes faster when there&apos;s nothing to polish.
             </p>
           </div>
         </section>
 
-        <section className="space-y-4">
-          <h2 className="text-xl font-bold tracking-tight">
-            Free, Private, Instant
+        {/* ── Components ── */}
+        <section className="mb-20">
+          <SectionLabel>Component library</SectionLabel>
+          <h2 className="text-xl font-bold text-[#2979FF] mb-3">
+            20+ ASCII components. All drag-and-drop.
           </h2>
-          <p className="text-foreground/70 leading-relaxed">
-            Mockdown runs entirely in your browser. No accounts, no cloud
-            storage, no tracking. Your wireframes never leave your device.
-            Just open the editor and start designing.
+          <p className="text-foreground/40 text-sm mb-8">
+            Every component below is built into Mockdown. Click, drag, place.
+            Double-click to edit text inline.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-border/40">
+            {/* Form controls */}
+            <div className="bg-background p-5 space-y-4">
+              <div className="text-[11px] uppercase tracking-widest text-foreground/30 font-bold">
+                Form controls
+              </div>
+              <Ascii>{`[ Submit ]  [ Cancel ]
+
+[________________]
+
+[▾ Select option  ]
+
+[/ Search...      ]
+
+☑ Remember me
+☐ Send notifications
+
+● Dark   ○ Light
+
+[━●] Autosave`}</Ascii>
+            </div>
+
+            {/* Data display */}
+            <div className="bg-background p-5 space-y-4">
+              <div className="text-[11px] uppercase tracking-widest text-foreground/30 font-bold">
+                Data display
+              </div>
+              <Ascii>{`[████████░░░░░░] 60%
+
+• Design system
+• Component API
+• Export formats
+
+Home > Docs > Components
+
+< 1 2 [3] 4 5 >`}</Ascii>
+            </div>
+
+            {/* Containers */}
+            <div className="bg-background p-5 space-y-4">
+              <div className="text-[11px] uppercase tracking-widest text-foreground/30 font-bold">
+                Containers
+              </div>
+              <Ascii>{`┌──────────────────┐
+│ Card Title       │
+├──────────────────┤
+│                  │
+│  Content area.   │
+│                  │
+└──────────────────┘
+
+┌──────┬───────────┐
+│ Col A│ Col B     │
+├──────┼───────────┤
+│ Row 1│ Data      │
+│ Row 2│ Data      │
+└──────┴───────────┘`}</Ascii>
+            </div>
+
+            {/* Navigation */}
+            <div className="bg-background p-5 space-y-4">
+              <div className="text-[11px] uppercase tracking-widest text-foreground/30 font-bold">
+                Navigation
+              </div>
+              <Ascii>{`Logo  Link  Link   [ Action ]
+─────────────────────────────
+
+[ Tab 1 ]  Tab 2   Tab 3
+─────────────────────────
+
+┌────────────────────────┐
+│ Dialog Title         × │
+├────────────────────────┤
+│                        │
+│  Are you sure?         │
+│                        │
+│   [ Cancel ] [ OK ]    │
+└────────────────────────┘`}</Ascii>
+            </div>
+          </div>
+
+          <p className="text-foreground/30 text-xs mt-4">
+            + lines, arrows, freehand drawing, boxes, placeholders, split
+            panels, and text blocks.
           </p>
         </section>
 
-        <div className="pt-4">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[#2979FF] text-white font-medium hover:bg-[#2563eb] transition-colors"
-          >
-            Open the Editor
-            <span aria-hidden="true">&rarr;</span>
-          </Link>
+        {/* ── How it works ── */}
+        <section className="mb-20">
+          <SectionLabel>Three steps</SectionLabel>
+          <h2 className="text-xl font-bold text-[#2979FF] mb-6">
+            Sketch it. Copy it. Paste it in Slack.
+          </h2>
+          <div className="space-y-6">
+            <div className="flex gap-4">
+              <span className="text-[#2979FF] font-bold shrink-0 w-6">01</span>
+              <div>
+                <strong className="text-foreground">Pick a component</strong>
+                <span className="text-foreground/50">
+                  {' '}— button, card, table, modal.
+                  Click the toolbar, drag onto the canvas.
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <span className="text-[#2979FF] font-bold shrink-0 w-6">02</span>
+              <div>
+                <strong className="text-foreground">Edit inline</strong>
+                <span className="text-foreground/50">
+                  {' '}— double-click any text to rewrite it.
+                  Components resize to fit your content.
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <span className="text-[#2979FF] font-bold shrink-0 w-6">03</span>
+              <div>
+                <strong className="text-foreground">Copy as Markdown</strong>
+                <span className="text-foreground/50">
+                  {' '}— one click. Paste into GitHub, Notion,
+                  Confluence, or a code comment. Done.
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Who ── */}
+        <section className="mb-20">
+          <SectionLabel>Who uses this</SectionLabel>
+          <h2 className="text-xl font-bold text-[#2979FF] mb-6">
+            For people who think in structure, not pixels.
+          </h2>
+          <div className="space-y-4 text-foreground/50 leading-relaxed">
+            <p>
+              <strong className="text-foreground">The developer</strong> who
+              sketches a login form in a code comment before writing the first
+              line of JSX.
+            </p>
+            <p>
+              <strong className="text-foreground">The PM</strong> who needs to
+              show a layout idea in a Jira ticket — not next sprint, now.
+            </p>
+            <p>
+              <strong className="text-foreground">The designer</strong> who
+              wants to explore 5 layout options in 10 minutes before opening
+              Figma.
+            </p>
+            <p>
+              <strong className="text-foreground">The tech writer</strong> who
+              embeds UI diagrams in docs and wants them to survive every format
+              conversion.
+            </p>
+          </div>
+        </section>
+
+        {/* ── Conditions ── */}
+        <section className="mb-20">
+          <SectionLabel>No strings</SectionLabel>
+          <h2 className="text-xl font-bold text-[#2979FF] mb-4">
+            Free. Private. Offline-ready.
+          </h2>
+          <p className="text-foreground/50 leading-relaxed">
+            Runs in your browser. No account, no cloud, no tracking.
+            Your wireframes stay on your device.
+          </p>
+        </section>
+
+        {/* ── CTA ── */}
+        <div className="border-t border-border/60 pt-12">
+          <Ascii>{`┌─────────────────────────────────┐
+│                                 │
+│    20+ components.              │
+│    Zero signup.                 │
+│    Works right now.             │
+│                                 │
+└─────────────────────────────────┘`}</Ascii>
+          <div className="mt-8">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-[#2979FF] text-white font-medium hover:bg-[#2563eb] transition-colors"
+            >
+              [ Open the Editor &rarr; ]
+            </Link>
+          </div>
         </div>
       </article>
 
-      <footer className="border-t border-border/60 py-8 px-6 text-center text-xs text-foreground/40">
-        <Link href="/" className="hover:text-foreground/60 transition-colors">
+      <footer className="border-t border-border/60 py-8 px-6 text-center text-xs text-foreground/30">
+        <Link href="/" className="hover:text-foreground/50 transition-colors">
           Mockdown
-        </Link>{' '}
-        — Free ASCII Wireframe Editor
+        </Link>
+        {' · '}
+        ASCII wireframe editor
       </footer>
     </main>
   );
