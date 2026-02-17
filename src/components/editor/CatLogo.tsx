@@ -144,7 +144,7 @@ function pickWeighted(weights: number[]): number {
 
 /* ─── Component ─── */
 
-export function CatLogo() {
+export function CatLogo({ compact }: { compact?: boolean } = {}) {
   const [flashMood, setFlashMood] = useState<string | null>(null);
   const [idleMood, setIdleMood] = useState<string | null>(null);
   const [isSleepy, setIsSleepy] = useState(false);
@@ -287,14 +287,16 @@ export function CatLogo() {
 
   return (
     <div
-      className="flex flex-col items-start px-4 pt-5 pb-5 cursor-pointer select-none"
+      className={`cursor-pointer select-none ${
+        compact ? 'py-1 overflow-hidden' : 'flex flex-col items-start px-4 pt-5 pb-5'
+      }`}
       onClick={handleClick}
       title="meow!"
     >
       <span
-        className={`text-3xl leading-none whitespace-nowrap transition-opacity duration-500 ${
-          isAsleep ? 'text-foreground/40' : 'text-foreground'
-        }`}
+        className={`leading-none whitespace-nowrap transition-opacity duration-500 ${
+          compact ? 'text-sm' : 'text-3xl'
+        } ${isAsleep ? 'text-foreground/40' : 'text-foreground'}`}
         aria-label="Cat logo"
       >
         <span
@@ -304,7 +306,7 @@ export function CatLogo() {
         >
           {faceStr}
         </span>
-        {sleepLabel}
+        {!compact && sleepLabel}
       </span>
     </div>
   );

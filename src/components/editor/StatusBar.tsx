@@ -2,12 +2,12 @@
 
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { toolMap } from '@/components/tools/registry';
+import { GridSizeSelector } from './GridSizeSelector';
 
 export function StatusBar() {
   const activeTool = useEditorStore((s) => s.activeTool);
   const cursorRow = useEditorStore((s) => s.cursorRow);
   const cursorCol = useEditorStore((s) => s.cursorCol);
-  const grid = useEditorStore((s) => s.renderedGrid);
 
   const toolLabel = toolMap[activeTool]?.label ?? activeTool;
 
@@ -19,9 +19,8 @@ export function StatusBar() {
       <span className="font-medium text-foreground/40">
         Ln {cursorRow + 1}, Col {cursorCol + 1}
       </span>
-      <span>
-        {grid.cols}&times;{grid.rows}
-      </span>
+      <div className="flex-1" />
+      <GridSizeSelector />
     </div>
   );
 }

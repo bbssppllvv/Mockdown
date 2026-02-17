@@ -42,7 +42,7 @@ export function GridSizeSelector() {
           {grid.cols}&times;{grid.rows}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-52 p-2" align="end">
+      <PopoverContent className="w-52 p-2" align="end" side="top">
         <div className="text-[10px] font-semibold text-foreground/30 mb-1.5 px-2 uppercase tracking-wider">Grid Size</div>
         {GRID_PRESETS.map((preset) => (
           <button
