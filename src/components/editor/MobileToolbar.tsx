@@ -56,25 +56,25 @@ const IC_XS = 'h-3.5 w-3.5';
 
 type ToolEntry = { id: ToolId; label: string; icon: React.ReactNode };
 
-// Row 1: Structure & UI tools
+// Row 1: Core tools + drawing
 const barRow1: ToolEntry[] = [
   { id: 'select', label: 'Select', icon: <MousePointer2 className={IC} /> },
   { id: 'text', label: 'Text', icon: <Type className={IC} /> },
   { id: 'box', label: 'Box', icon: <Square className={IC} /> },
   { id: 'line', label: 'Line', icon: <Minus className={IC} /> },
   { id: 'arrow', label: 'Arrow', icon: <ArrowRight className={IC} /> },
-  { id: 'button', label: 'Button', icon: <RectangleHorizontal className={IC} /> },
-  { id: 'card', label: 'Card', icon: <CreditCard className={IC} /> },
-];
-
-// Row 2: Drawing & creative tools + More
-const barRow2: ToolEntry[] = [
   { id: 'pencil', label: 'Pencil', icon: <Pencil className={IC} /> },
   { id: 'eraser', label: 'Eraser', icon: <Eraser className={IC} /> },
-  { id: 'brush', label: 'Brush', icon: <Paintbrush className={IC} /> },
-  { id: 'spray', label: 'Spray', icon: <SprayCan className={IC} /> },
-  { id: 'fill', label: 'Fill', icon: <PaintBucket className={IC} /> },
-  { id: 'scatter', label: 'Scatter', icon: <Sparkles className={IC} /> },
+];
+
+// Row 2: UI components + More
+const barRow2: ToolEntry[] = [
+  { id: 'button', label: 'Button', icon: <RectangleHorizontal className={IC} /> },
+  { id: 'input', label: 'Input', icon: <TextCursorInput className={IC} /> },
+  { id: 'card', label: 'Card', icon: <CreditCard className={IC} /> },
+  { id: 'table', label: 'Table', icon: <Table className={IC} /> },
+  { id: 'modal', label: 'Modal', icon: <AppWindow className={IC} /> },
+  { id: 'tabs', label: 'Tabs', icon: <SquareStack className={IC} /> },
 ];
 
 // Sheet tools grouped
