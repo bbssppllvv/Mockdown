@@ -8,9 +8,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'
-  ),
+  metadataBase: new URL('https://www.mockdown.design'),
   title: 'Mockdown — ASCII Wireframe Editor',
   description: 'Quick ASCII wireframe prototyping tool',
   openGraph: {
