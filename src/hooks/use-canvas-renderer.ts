@@ -143,9 +143,9 @@ export function useCanvasRenderer() {
       // Account for sidebar (192px on md+, 0 on mobile since it's an overlay)
       const isMobile = window.innerWidth < 768;
       const availableWidth = isMobile ? window.innerWidth - 16 : window.innerWidth - 192;
-      // On mobile, subtract bottom toolbar (52px) + safe area estimate (~34px)
+      // On mobile, subtract bottom toolbar (88px two rows) + safe area estimate (~34px)
       const availableHeight = isMobile
-        ? window.innerHeight - 86
+        ? window.innerHeight - 122
         : window.innerHeight;
       // On mobile, don't scale down for width — allow horizontal overflow/scroll
       const scaleX = !isMobile && availableWidth < gridPixelWidth && gridPixelWidth > 0

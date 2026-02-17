@@ -56,14 +56,25 @@ const IC_XS = 'h-3.5 w-3.5';
 
 type ToolEntry = { id: ToolId; label: string; icon: React.ReactNode };
 
-// Primary bar tools (always visible)
-const barTools: ToolEntry[] = [
+// Row 1: Structure & UI tools
+const barRow1: ToolEntry[] = [
   { id: 'select', label: 'Select', icon: <MousePointer2 className={IC} /> },
   { id: 'text', label: 'Text', icon: <Type className={IC} /> },
   { id: 'box', label: 'Box', icon: <Square className={IC} /> },
-  { id: 'pencil', label: 'Pencil', icon: <Pencil className={IC} /> },
   { id: 'line', label: 'Line', icon: <Minus className={IC} /> },
+  { id: 'arrow', label: 'Arrow', icon: <ArrowRight className={IC} /> },
   { id: 'button', label: 'Button', icon: <RectangleHorizontal className={IC} /> },
+  { id: 'card', label: 'Card', icon: <CreditCard className={IC} /> },
+];
+
+// Row 2: Drawing & creative tools + More
+const barRow2: ToolEntry[] = [
+  { id: 'pencil', label: 'Pencil', icon: <Pencil className={IC} /> },
+  { id: 'eraser', label: 'Eraser', icon: <Eraser className={IC} /> },
+  { id: 'brush', label: 'Brush', icon: <Paintbrush className={IC} /> },
+  { id: 'spray', label: 'Spray', icon: <SprayCan className={IC} /> },
+  { id: 'fill', label: 'Fill', icon: <PaintBucket className={IC} /> },
+  { id: 'scatter', label: 'Scatter', icon: <Sparkles className={IC} /> },
 ];
 
 // Sheet tools grouped
@@ -223,7 +234,7 @@ export function MobileToolbar() {
           <div className="fixed inset-x-0 bottom-0 z-[95] md:hidden animate-in slide-in-from-bottom duration-200">
             <div
               className="bg-background border-t border-border/60 rounded-t-2xl max-h-[70vh] overflow-y-auto"
-              style={{ paddingBottom: 'calc(52px + env(safe-area-inset-bottom, 34px))' }}
+              style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 34px))' }}
             >
               {/* Drag handle */}
               <div className="flex justify-center pt-2 pb-1">
@@ -304,14 +315,14 @@ export function MobileToolbar() {
         </>
       )}
 
-      {/* ── Fixed bottom bar ── */}
+      {/* ── Fixed bottom bar (two rows) ── */}
       <div
         className="fixed inset-x-0 bottom-0 z-[100] md:hidden bg-background border-t border-border/60 select-none"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
-        <div className="flex items-center h-[52px] px-1">
-          {/* Tool buttons */}
-          {barTools.map((t) => {
+        {/* Row 1: Structure & UI */}
+        <div className="flex items-center h-[44px] px-1">
+          {barRow1.map((t) => {
             const isActive = activeTool === t.id;
             return (
               <button
@@ -326,11 +337,25 @@ export function MobileToolbar() {
               </button>
             );
           })}
+        </div>
 
-          {/* Separator */}
-          <div className="w-px h-7 bg-border/60 mx-0.5 shrink-0" />
-
-          {/* More */}
+        {/* Row 2: Drawing & creative + More */}
+        <div className="flex items-center h-[44px] px-1 border-t border-border/30">
+          {barRow2.map((t) => {
+            const isActive = activeTool === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setActiveTool(t.id)}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1 rounded-lg transition-colors ${
+                  isActive ? 'text-[#2563eb]' : 'text-foreground/50 active:text-foreground'
+                }`}
+              >
+                {t.icon}
+                <span className="text-[9px] font-medium leading-none">{t.label}</span>
+              </button>
+            );
+          })}
           <button
             onClick={() => setSheetOpen((v) => !v)}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1 rounded-lg transition-colors ${

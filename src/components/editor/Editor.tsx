@@ -42,7 +42,7 @@ export function Editor() {
           {/* Spacer so grid content isn't hidden behind mobile bottom bar */}
           <div
             className="md:hidden shrink-0"
-            style={{ height: 'calc(52px + env(safe-area-inset-bottom, 0px))' }}
+            style={{ height: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}
           />
         </div>
 
