@@ -137,7 +137,7 @@ export function GeneratePrompt() {
 
   return (
     <div className="fixed z-50 inset-0 flex items-center justify-center pointer-events-none">
-      <div className="w-60 bg-background border border-border/60 rounded-lg shadow-xl p-2.5 flex flex-col gap-2 pointer-events-auto">
+      <div className="w-[calc(100vw-32px)] max-w-60 bg-background border border-border/60 rounded-lg shadow-xl p-2.5 flex flex-col gap-2 pointer-events-auto">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-[#2563eb]">
@@ -162,7 +162,7 @@ export function GeneratePrompt() {
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={generateLoading}
-            className="flex-1 h-7 px-2 text-xs border border-border/60 rounded-lg bg-background text-foreground placeholder:text-foreground/30 disabled:opacity-50"
+            className="flex-1 h-8 px-2 text-[16px] md:text-xs border border-border/60 rounded-lg bg-background text-foreground placeholder:text-foreground/30 disabled:opacity-50"
           />
           <button
             onClick={() => handleSubmit()}
