@@ -147,7 +147,8 @@ export function useCanvasRenderer() {
       const availableHeight = isMobile
         ? window.innerHeight - 86
         : window.innerHeight;
-      const scaleX = availableWidth < gridPixelWidth && gridPixelWidth > 0
+      // On mobile, don't scale down for width — allow horizontal overflow/scroll
+      const scaleX = !isMobile && availableWidth < gridPixelWidth && gridPixelWidth > 0
         ? availableWidth / gridPixelWidth
         : 1;
       const scaleY = isMobile && availableHeight < gridPixelHeight && gridPixelHeight > 0

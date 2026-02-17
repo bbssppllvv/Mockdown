@@ -1,7 +1,7 @@
 // 3.5: Detect mobile viewport at import time for default grid size
 const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768;
 
-export const GRID_COLS = IS_MOBILE ? 40 : 80;
+export const GRID_COLS = IS_MOBILE ? 60 : 80;
 export const GRID_ROWS = IS_MOBILE ? 40 : 40;
 
 export const FONT_FAMILY = 'JetBrains Mono, monospace';
@@ -87,7 +87,7 @@ export const TOOL_IDS = [
 export type ToolId = (typeof TOOL_IDS)[number];
 
 export const GRID_PRESETS = [
-  { label: 'Mobile (40x40)', cols: 40, rows: 40 },
+  { label: 'Mobile (60x40)', cols: 60, rows: 40 },
   { label: 'Small (40x20)', cols: 40, rows: 20 },
   { label: 'Medium (80x40)', cols: 80, rows: 40 },
   { label: 'Large (120x60)', cols: 120, rows: 60 },
