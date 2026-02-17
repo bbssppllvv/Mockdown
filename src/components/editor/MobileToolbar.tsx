@@ -58,23 +58,23 @@ type ToolEntry = { id: ToolId; label: string; icon: React.ReactNode };
 
 // Row 1: Core tools + drawing
 const barRow1: ToolEntry[] = [
-  { id: 'select', label: 'Select', icon: <MousePointer2 className={IC} /> },
-  { id: 'text', label: 'Text', icon: <Type className={IC} /> },
-  { id: 'box', label: 'Box', icon: <Square className={IC} /> },
-  { id: 'line', label: 'Line', icon: <Minus className={IC} /> },
-  { id: 'arrow', label: 'Arrow', icon: <ArrowRight className={IC} /> },
-  { id: 'pencil', label: 'Pencil', icon: <Pencil className={IC} /> },
-  { id: 'eraser', label: 'Eraser', icon: <Eraser className={IC} /> },
+  { id: 'select', label: 'Select', icon: <MousePointer2 className={IC_SM} /> },
+  { id: 'text', label: 'Text', icon: <Type className={IC_SM} /> },
+  { id: 'box', label: 'Box', icon: <Square className={IC_SM} /> },
+  { id: 'line', label: 'Line', icon: <Minus className={IC_SM} /> },
+  { id: 'arrow', label: 'Arrow', icon: <ArrowRight className={IC_SM} /> },
+  { id: 'pencil', label: 'Pencil', icon: <Pencil className={IC_SM} /> },
+  { id: 'eraser', label: 'Eraser', icon: <Eraser className={IC_SM} /> },
 ];
 
 // Row 2: UI components + More
 const barRow2: ToolEntry[] = [
-  { id: 'button', label: 'Button', icon: <RectangleHorizontal className={IC} /> },
-  { id: 'input', label: 'Input', icon: <TextCursorInput className={IC} /> },
-  { id: 'card', label: 'Card', icon: <CreditCard className={IC} /> },
-  { id: 'table', label: 'Table', icon: <Table className={IC} /> },
-  { id: 'modal', label: 'Modal', icon: <AppWindow className={IC} /> },
-  { id: 'tabs', label: 'Tabs', icon: <SquareStack className={IC} /> },
+  { id: 'button', label: 'Button', icon: <RectangleHorizontal className={IC_SM} /> },
+  { id: 'input', label: 'Input', icon: <TextCursorInput className={IC_SM} /> },
+  { id: 'card', label: 'Card', icon: <CreditCard className={IC_SM} /> },
+  { id: 'table', label: 'Table', icon: <Table className={IC_SM} /> },
+  { id: 'modal', label: 'Modal', icon: <AppWindow className={IC_SM} /> },
+  { id: 'tabs', label: 'Tabs', icon: <SquareStack className={IC_SM} /> },
 ];
 
 // Sheet tools grouped
@@ -320,50 +320,56 @@ export function MobileToolbar() {
         className="fixed inset-x-0 bottom-0 z-[100] md:hidden bg-background border-t border-border/60 select-none"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
-        {/* Row 1: Structure & UI */}
-        <div className="flex items-center h-[44px] px-1">
+        {/* Row 1 */}
+        <div className="grid grid-cols-7 gap-0.5 px-1 pt-1">
           {barRow1.map((t) => {
             const isActive = activeTool === t.id;
             return (
               <button
                 key={t.id}
                 onClick={() => setActiveTool(t.id)}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1 rounded-lg transition-colors ${
-                  isActive ? 'text-[#2563eb]' : 'text-foreground/50 active:text-foreground'
+                className={`flex flex-col items-center justify-center gap-1 py-1.5 rounded-xl text-[10px] font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#2563eb] text-white'
+                    : 'text-foreground/70 active:bg-foreground/10'
                 }`}
               >
                 {t.icon}
-                <span className="text-[9px] font-medium leading-none">{t.label}</span>
+                <span className="truncate w-full text-center leading-tight">{t.label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Row 2: Drawing & creative + More */}
-        <div className="flex items-center h-[44px] px-1 border-t border-border/30">
+        {/* Row 2 */}
+        <div className="grid grid-cols-7 gap-0.5 px-1 pb-1">
           {barRow2.map((t) => {
             const isActive = activeTool === t.id;
             return (
               <button
                 key={t.id}
                 onClick={() => setActiveTool(t.id)}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1 rounded-lg transition-colors ${
-                  isActive ? 'text-[#2563eb]' : 'text-foreground/50 active:text-foreground'
+                className={`flex flex-col items-center justify-center gap-1 py-1.5 rounded-xl text-[10px] font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#2563eb] text-white'
+                    : 'text-foreground/70 active:bg-foreground/10'
                 }`}
               >
                 {t.icon}
-                <span className="text-[9px] font-medium leading-none">{t.label}</span>
+                <span className="truncate w-full text-center leading-tight">{t.label}</span>
               </button>
             );
           })}
           <button
             onClick={() => setSheetOpen((v) => !v)}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1 rounded-lg transition-colors ${
-              sheetOpen ? 'text-[#2563eb]' : 'text-foreground/50 active:text-foreground'
+            className={`flex flex-col items-center justify-center gap-1 py-1.5 rounded-xl text-[10px] font-medium transition-colors ${
+              sheetOpen
+                ? 'bg-[#2563eb] text-white'
+                : 'text-foreground/70 active:bg-foreground/10'
             }`}
           >
-            <MoreHorizontal className={IC} />
-            <span className="text-[9px] font-medium leading-none">More</span>
+            <MoreHorizontal className={IC_SM} />
+            <span className="truncate w-full text-center leading-tight">More</span>
           </button>
         </div>
       </div>
