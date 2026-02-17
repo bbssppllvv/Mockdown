@@ -599,7 +599,7 @@ export const useSceneStore = create<SceneState>((set, get) => {
     applyChars: (chars) => {
       // Create a StrokeNode from the provided chars (used by generate tool final pass)
       if (chars.length === 0) return;
-      const doc = get().document;
+      let doc = get().document;
 
       // Compute bounding box
       let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
@@ -608,6 +608,24 @@ export const useSceneStore = create<SceneState>((set, get) => {
         if (c.row > maxR) maxR = c.row;
         if (c.col < minC) minC = c.col;
         if (c.col > maxC) maxC = c.col;
+      }
+
+      // Remove old nodes fully contained within the generation area
+      // so regeneration replaces instead of layering on top
+      const overlapIds: NodeId[] = [];
+      for (const [id, node] of doc.nodes) {
+        if (node.type === 'group') continue;
+        const b = node.bounds;
+        if (
+          b.y >= minR && b.x >= minC &&
+          b.y + b.height - 1 <= maxR && b.x + b.width - 1 <= maxC
+        ) {
+          overlapIds.push(id);
+        }
+      }
+      if (overlapIds.length > 0) {
+        doc = removeNodesDoc(doc, overlapIds);
+        set({ document: doc });
       }
 
       // Convert to relative SparseCell coords, skip spaces
