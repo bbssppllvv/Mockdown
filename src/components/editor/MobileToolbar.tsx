@@ -52,6 +52,7 @@ import { toast } from 'sonner';
 
 const IC = 'h-5 w-5';
 const IC_SM = 'h-4 w-4';
+const IC_XS = 'h-3.5 w-3.5';
 
 type ToolEntry = { id: ToolId; label: string; icon: React.ReactNode };
 
@@ -62,7 +63,7 @@ const barTools: ToolEntry[] = [
   { id: 'box', label: 'Box', icon: <Square className={IC} /> },
   { id: 'pencil', label: 'Pencil', icon: <Pencil className={IC} /> },
   { id: 'eraser', label: 'Eraser', icon: <Eraser className={IC} /> },
-  { id: 'generate', label: 'Generate', icon: <Wand2 className={IC} /> },
+  { id: 'generate', label: 'AI', icon: <Wand2 className={IC} /> },
 ];
 
 // Sheet tools grouped
@@ -121,6 +122,7 @@ export function MobileToolbar() {
   const grid = useEditorStore((s) => s.renderedGrid);
 
   const toolLabel = toolMap[activeTool]?.label ?? activeTool;
+  const canvasHasContent = undoStack.length > 0;
 
   const selectTool = useCallback(
     (id: ToolId) => {
@@ -150,7 +152,39 @@ export function MobileToolbar() {
 
   return (
     <>
-      {/* Bottom sheet backdrop + panel */}
+      {/* ── Floating top-left: Undo / Redo / Clear ── */}
+      <div
+        className="fixed top-3 left-3 z-50 md:hidden flex items-center gap-1 bg-background/90 backdrop-blur-sm border border-border/60 rounded-xl px-1 py-0.5 shadow-sm"
+        style={{ top: 'calc(12px + env(safe-area-inset-top, 0px))' }}
+      >
+        <button
+          onClick={undo}
+          disabled={undoStack.length === 0}
+          className="p-1.5 rounded-lg text-foreground/50 active:bg-foreground/10 disabled:opacity-20 disabled:pointer-events-none"
+        >
+          <Undo2 className={IC_XS} />
+        </button>
+        <button
+          onClick={redo}
+          disabled={redoStack.length === 0}
+          className="p-1.5 rounded-lg text-foreground/50 active:bg-foreground/10 disabled:opacity-20 disabled:pointer-events-none"
+        >
+          <Redo2 className={IC_XS} />
+        </button>
+        {canvasHasContent && (
+          <>
+            <div className="w-px h-4 bg-border/60" />
+            <button
+              onClick={() => clearCanvas()}
+              className="p-1.5 rounded-lg text-red-500/70 active:bg-red-500/10"
+            >
+              <Trash2 className={IC_XS} />
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* ── Bottom sheet backdrop + panel ── */}
       {sheetOpen && (
         <>
           <div
@@ -236,27 +270,12 @@ export function MobileToolbar() {
                 </button>
                 <GridSizeSelector />
               </div>
-
-              {/* Copy Markdown */}
-              <div className="px-4 pt-2 pb-4">
-                <button
-                  onClick={async () => {
-                    await copyAsMarkdown(grid);
-                    toast.success('Copied!');
-                    setSheetOpen(false);
-                  }}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold bg-[#2563eb] text-white active:bg-[#2563eb]/90 transition-colors"
-                >
-                  <Copy className={IC_SM} />
-                  Copy Markdown
-                </button>
-              </div>
             </div>
           </div>
         </>
       )}
 
-      {/* Fixed bottom bar */}
+      {/* ── Fixed bottom bar ── */}
       <div
         className="fixed inset-x-0 bottom-0 z-[100] md:hidden bg-background border-t border-border/60 select-none"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
@@ -282,24 +301,16 @@ export function MobileToolbar() {
           {/* Separator */}
           <div className="w-px h-7 bg-border/60 mx-0.5 shrink-0" />
 
-          {/* Undo */}
+          {/* Copy Markdown */}
           <button
-            onClick={undo}
-            disabled={undoStack.length === 0}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1 text-foreground/50 active:text-foreground disabled:opacity-20 disabled:pointer-events-none"
+            onClick={async () => {
+              await copyAsMarkdown(grid);
+              toast.success('Copied!');
+            }}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1 text-foreground/50 active:text-[#2563eb]"
           >
-            <Undo2 className={IC} />
-            <span className="text-[9px] font-medium leading-none">Undo</span>
-          </button>
-
-          {/* Redo */}
-          <button
-            onClick={redo}
-            disabled={redoStack.length === 0}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1 text-foreground/50 active:text-foreground disabled:opacity-20 disabled:pointer-events-none"
-          >
-            <Redo2 className={IC} />
-            <span className="text-[9px] font-medium leading-none">Redo</span>
+            <Copy className={IC} />
+            <span className="text-[9px] font-medium leading-none">Copy</span>
           </button>
 
           {/* More */}
