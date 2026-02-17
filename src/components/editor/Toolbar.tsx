@@ -105,10 +105,10 @@ const drawGroup: ToolGroup = {
   primary: [
     { id: 'pencil', label: 'Pencil', icon: <Pencil className={ICON} /> },
     { id: 'brush',  label: 'Brush',  icon: <Paintbrush className={ICON} /> },
+    { id: 'spray',  label: 'Spray',  icon: <SprayCan className={ICON} /> },
     { id: 'eraser', label: 'Eraser', icon: <Eraser className={ICON} /> },
   ],
   secondary: [
-    { id: 'spray',    label: 'Spray',   icon: <SprayCan className={ICON} /> },
     { id: 'shade',    label: 'Shade',   icon: <Contrast className={ICON} /> },
     { id: 'fill',     label: 'Fill',    icon: <PaintBucket className={ICON} /> },
     { id: 'smudge',   label: 'Smudge',  icon: <Droplets className={ICON} /> },
