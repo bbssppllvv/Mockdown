@@ -107,6 +107,7 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
             : [...s.selectedIds, hitId];
           s.setSelection(newIds);
           // Prepare for potential move of the new selection
+          s.pushUndo();
           s.setSelectInteraction('moving');
           s.setSelectDragStart(pos);
           const boundsMap = new Map<string, Bounds>();
@@ -359,6 +360,12 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
           if (dRow !== 0 || dCol !== 0) {
             const newBounds = computeResizedBounds(origBounds, s.resizeCorner, dRow, dCol);
             s.resizeNode(nodeId, newBounds);
+          } else {
+            // No resize happened — pop the undo
+            const { undoStack } = s;
+            if (undoStack.length > 0) {
+              useSceneStore.setState({ undoStack: undoStack.slice(0, -1) });
+            }
           }
         }
         s.setSelectInteraction('idle');
