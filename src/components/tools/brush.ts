@@ -1,23 +1,35 @@
 import { DrawingTool, GridPos, PreviewCell } from './types';
 import { CharGrid } from '@/lib/grid-model';
 import { SparseCell } from '@/lib/scene/types';
+import { useSceneStore } from '@/hooks/use-scene-store';
+
+function getNibSize(): number {
+  return useSceneStore.getState().toolSettings.brush.nibSize;
+}
 
 // Calligraphic nib: fixed 45° diagonal, like a real calligraphy pen.
 // Horizontal strokes → thick (wide vertical spread from overlapping stamps)
 // Vertical strokes → thin (non-overlapping diagonal stamps)
-const CALLIGRAPHY_NIB: { dr: number; dc: number; char: string }[] = [
-  { dr: -2, dc:  2, char: '\u2591' },
-  { dr: -1, dc:  1, char: '\u2593' },
-  { dr:  0, dc:  0, char: '\u2588' },
-  { dr:  1, dc: -1, char: '\u2593' },
-  { dr:  2, dc: -2, char: '\u2591' },
-];
+function buildNib(nibSize: number): { dr: number; dc: number; char: string }[] {
+  const half = Math.floor(nibSize / 2);
+  const nib: { dr: number; dc: number; char: string }[] = [];
+  for (let i = 0; i < nibSize; i++) {
+    const offset = i - half;
+    let char: string;
+    if (i === 0 || i === nibSize - 1) char = '\u2591';
+    else if (i === 1 || i === nibSize - 2) char = '\u2593';
+    else char = '\u2588';
+    nib.push({ dr: offset, dc: -offset, char });
+  }
+  return nib;
+}
 
 const DENSITY: Record<string, number> = { ' ': 0, '\u2591': 1, '\u2592': 2, '\u2593': 3, '\u2588': 4 };
 
 function stampBrush(row: number, col: number, grid: CharGrid): { row: number; col: number; char: string }[] {
+  const nib = buildNib(getNibSize());
   const cells: { row: number; col: number; char: string }[] = [];
-  for (const k of CALLIGRAPHY_NIB) {
+  for (const k of nib) {
     const r = row + k.dr;
     const c = col + k.dc;
     if (r >= 0 && r < grid.rows && c >= 0 && c < grid.cols) {

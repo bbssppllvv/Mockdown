@@ -1,13 +1,18 @@
 import { DrawingTool, GridPos, ToolResult } from './types';
 import { CharGrid } from '@/lib/grid-model';
 import { SparseCell } from '@/lib/scene/types';
+import { useSceneStore } from '@/hooks/use-scene-store';
 
-const FILL_CHAR = '\u2588';
 const MAX_FILL = 5000;
 
+function getFillChar(): string {
+  return useSceneStore.getState().toolSettings.fill.char;
+}
+
 function floodFill(grid: CharGrid, startRow: number, startCol: number): SparseCell[] {
+  const fillChar = getFillChar();
   const target = grid.getChar(startRow, startCol);
-  if (target === FILL_CHAR) return [];
+  if (target === fillChar) return [];
 
   const cells: SparseCell[] = [];
   const visited = new Set<string>();
@@ -16,7 +21,7 @@ function floodFill(grid: CharGrid, startRow: number, startCol: number): SparseCe
 
   while (queue.length > 0 && cells.length < MAX_FILL) {
     const { row, col } = queue.shift()!;
-    cells.push({ row, col, char: FILL_CHAR });
+    cells.push({ row, col, char: fillChar });
 
     for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
       const nr = row + dr;

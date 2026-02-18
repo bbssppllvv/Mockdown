@@ -96,6 +96,7 @@ export function Grid() {
         <textarea
           ref={inputRef}
           className="absolute opacity-0 w-0 h-0 pointer-events-none"
+          data-editor-input-bridge="true"
           style={{ top: 0, left: 0, fontSize: 16 }}
           autoCapitalize="off"
           autoComplete="off"

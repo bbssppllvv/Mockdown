@@ -1,10 +1,13 @@
 import { DrawingTool, GridPos, PreviewCell, ToolResult } from './types';
 import { BOX } from '@/lib/box-chars';
 import { NewNodeData } from '@/lib/scene/types';
+import { useSceneStore } from '@/hooks/use-scene-store';
 
-const DEFAULT_CARD_TITLE = 'Title';
+function getCardSettings() {
+  return useSceneStore.getState().toolSettings.card;
+}
 
-function buildCardPreview(start: GridPos, end: GridPos): PreviewCell[] {
+function buildCardPreview(start: GridPos, end: GridPos, title: string): PreviewCell[] {
   const minR = Math.min(start.row, end.row);
   const maxR = Math.max(start.row, end.row);
   const minC = Math.min(start.col, end.col);
@@ -43,9 +46,9 @@ function buildCardPreview(start: GridPos, end: GridPos): PreviewCell[] {
 
   const titleR = minR + 1;
   const titleStart = minC + 2;
-  for (let i = 0; i < DEFAULT_CARD_TITLE.length && titleStart + i < maxC; i++) {
+  for (let i = 0; i < title.length && titleStart + i < maxC; i++) {
     const idx = cells.findIndex(cell => cell.row === titleR && cell.col === titleStart + i);
-    if (idx !== -1) cells[idx].char = DEFAULT_CARD_TITLE[i];
+    if (idx !== -1) cells[idx].char = title[i];
   }
 
   return cells;
@@ -86,7 +89,8 @@ function buildCardNodes(x: number, y: number, width: number, height: number, tit
 
 function createCardResult(minR: number, minC: number, width: number, height: number): ToolResult {
   if (height < 3 || width < 6) return null;
-  const nodes = buildCardNodes(minC, minR, width, height, DEFAULT_CARD_TITLE);
+  const { defaultTitle } = getCardSettings();
+  const nodes = buildCardNodes(minC, minR, width, height, defaultTitle);
   return { kind: 'createMany', nodes, groupName: 'Card' };
 }
 
@@ -96,7 +100,8 @@ export const cardTool: DrawingTool = {
   icon: 'CreditCard',
 
   onClick(pos: GridPos): ToolResult {
-    return createCardResult(pos.row, pos.col, 20, 8);
+    const { defaultWidth, defaultHeight } = getCardSettings();
+    return createCardResult(pos.row, pos.col, defaultWidth, defaultHeight);
   },
 
   onDragStart() {
@@ -104,10 +109,11 @@ export const cardTool: DrawingTool = {
   },
 
   onDrag(start: GridPos, current: GridPos): PreviewCell[] | null {
+    const { defaultTitle, defaultWidth, defaultHeight } = getCardSettings();
     if (start.row === current.row && start.col === current.col) {
-      return buildCardPreview(start, { row: start.row + 7, col: start.col + 19 });
+      return buildCardPreview(start, { row: start.row + defaultHeight - 1, col: start.col + defaultWidth - 1 }, defaultTitle);
     }
-    return buildCardPreview(start, current);
+    return buildCardPreview(start, current, defaultTitle);
   },
 
   onDragEnd(start: GridPos, end: GridPos): ToolResult {

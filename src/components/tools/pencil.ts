@@ -1,8 +1,11 @@
 import { DrawingTool, GridPos, PreviewCell } from './types';
 import { CharGrid } from '@/lib/grid-model';
 import { SparseCell } from '@/lib/scene/types';
+import { useSceneStore } from '@/hooks/use-scene-store';
 
-const PENCIL_CHAR = '\u2588';
+function getPencilChar(): string {
+  return useSceneStore.getState().toolSettings.pencil.char;
+}
 
 /** Bresenham line interpolation between two grid positions. */
 function interpolate(r0: number, c0: number, r1: number, c1: number): { row: number; col: number }[] {
@@ -33,15 +36,17 @@ export const pencilTool: DrawingTool = {
   continuous: true,
 
   onDragStart(pos: GridPos): PreviewCell[] | null {
-    return [{ row: pos.row, col: pos.col, char: PENCIL_CHAR }];
+    const ch = getPencilChar();
+    return [{ row: pos.row, col: pos.col, char: ch }];
   },
 
   onContinuousDrag(prev: GridPos, current: GridPos, _grid: CharGrid, accumulator: SparseCell[]): PreviewCell[] | null {
+    const ch = getPencilChar();
     const path = interpolate(prev.row, prev.col, current.row, current.col);
     const preview: PreviewCell[] = [];
     for (const p of path) {
-      accumulator.push({ row: p.row, col: p.col, char: PENCIL_CHAR });
-      preview.push({ row: p.row, col: p.col, char: PENCIL_CHAR });
+      accumulator.push({ row: p.row, col: p.col, char: ch });
+      preview.push({ row: p.row, col: p.col, char: ch });
     }
     return preview;
   },

@@ -1,9 +1,15 @@
 import { DrawingTool, GridPos, PreviewCell, ToolResult } from './types';
 import { NewNodeData } from '@/lib/scene/types';
+import { useSceneStore } from '@/hooks/use-scene-store';
 
-const DEFAULT_LOGO = 'Logo';
-const DEFAULT_LINKS = ['Link', 'Link', 'Link'];
-const DEFAULT_ACTION = 'Action';
+function getNavSettings() {
+  const s = useSceneStore.getState().toolSettings.nav;
+  return {
+    logo: s.defaultLogo,
+    links: s.defaultLinks.split(',').map(l => l.trim()).filter(Boolean),
+    action: s.defaultAction,
+  };
+}
 
 function buildNavPreview(start: GridPos, end: GridPos): PreviewCell[] {
   const minR = Math.min(start.row, end.row);
@@ -13,23 +19,24 @@ function buildNavPreview(start: GridPos, end: GridPos): PreviewCell[] {
   const w = maxC - minC + 1;
   if (w < 10) return [];
 
+  const { logo, links, action } = getNavSettings();
   const cells: PreviewCell[] = [];
-  const content = 'Logo   Link   Link   Link';
-  const action = '[ Action ]';
+  const content = logo + '   ' + links.join('   ');
+  const actionStr = '[ ' + action + ' ]';
   const row = minR;
 
   for (let i = 0; i < content.length && minC + i <= maxC; i++) {
     cells.push({ row, col: minC + i, char: content[i] });
   }
 
-  const actionStart = maxC - action.length + 1;
+  const actionStart = maxC - actionStr.length + 1;
   for (let c = minC + content.length; c < actionStart && c <= maxC; c++) {
     cells.push({ row, col: c, char: ' ' });
   }
 
   if (actionStart > minC + content.length) {
-    for (let i = 0; i < action.length && actionStart + i <= maxC; i++) {
-      cells.push({ row, col: actionStart + i, char: action[i] });
+    for (let i = 0; i < actionStr.length && actionStart + i <= maxC; i++) {
+      cells.push({ row, col: actionStart + i, char: actionStr[i] });
     }
   }
 
@@ -94,7 +101,8 @@ function buildNavNodes(x: number, y: number, width: number, logo: string, links:
 
 function createNavResult(minR: number, minC: number, width: number): ToolResult {
   if (width < 10) return null;
-  const nodes = buildNavNodes(minC, minR, width, DEFAULT_LOGO, DEFAULT_LINKS, DEFAULT_ACTION);
+  const { logo, links, action } = getNavSettings();
+  const nodes = buildNavNodes(minC, minR, width, logo, links, action);
   return { kind: 'createMany', nodes, groupName: 'Nav Bar' };
 }
 

@@ -209,7 +209,11 @@ export type SceneNode =
 export type SceneNodeType = SceneNode['type'];
 
 // Distributive Omit that preserves union members
-export type NewNodeData = SceneNode extends infer T ? T extends any ? Omit<T, 'id' | 'visible' | 'locked' | 'parentId'> : never : never;
+export type NewNodeData = SceneNode extends infer T
+  ? T extends unknown
+    ? Omit<T, 'id' | 'visible' | 'locked' | 'parentId'>
+    : never
+  : never;
 
 // ── Resize corner identifiers ────────────────────────────────────────────────
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';

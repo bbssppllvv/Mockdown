@@ -139,9 +139,59 @@ export function updateNode(doc: SceneDocument, id: NodeId, patch: Partial<SceneN
   if (!node) return doc;
   const next = cloneDocShallow(doc);
   const updated = { ...node, ...patch, id, type: node.type } as SceneNode;
+  fitBoundsToContent(updated);
   next.nodes.set(id, updated);
   refreshGroupChain(next, updated.parentId);
   return next;
+}
+
+/** Recalculate bounds when content-defining props change. */
+function fitBoundsToContent(node: SceneNode): void {
+  const b = node.bounds;
+  switch (node.type) {
+    case 'table': {
+      // height = 1 (top border) + 1 (header) + 1 (separator) + rowCount + 1 (bottom border)
+      const minH = node.rowCount + 3;
+      // width = sum of columnWidths + 1 (for borders)
+      const minW = node.columns.length * (node.columnWidths[0] ?? 10) + 1;
+      node.bounds = { ...b, height: Math.max(minH, 4), width: Math.max(minW, b.width) };
+      // Sync columnWidths array length to match columns
+      if (node.columnWidths.length !== node.columns.length) {
+        const cw = node.columnWidths[0] ?? 10;
+        node.columnWidths = node.columns.map((_, i) => node.columnWidths[i] ?? cw);
+      }
+      break;
+    }
+    case 'list': {
+      const minH = node.items.length;
+      const minW = Math.max(...node.items.map(s => s.length + 2), 3);
+      node.bounds = { ...b, height: Math.max(minH, 1), width: Math.max(minW, b.width) };
+      break;
+    }
+    case 'breadcrumb': {
+      const str = node.items.join(' > ');
+      node.bounds = { ...b, width: Math.max(str.length, 1), height: 1 };
+      break;
+    }
+    case 'tabs': {
+      const line = node.tabs.map((t, i) => i === node.activeIndex ? `[ ${t} ]` : ` ${t}`).join('  ');
+      node.bounds = { ...b, width: Math.max(line.length, b.width) };
+      break;
+    }
+    case 'nav': {
+      const content = [node.logo, ...node.links].join('   ');
+      const action = `[ ${node.action} ]`;
+      const minW = content.length + 4 + action.length;
+      node.bounds = { ...b, width: Math.max(minW, b.width), height: Math.max(3, b.height) };
+      break;
+    }
+    case 'text': {
+      const lines = node.content.split('\n');
+      const maxLineLen = Math.max(...lines.map(l => l.length), 1);
+      node.bounds = { ...b, width: maxLineLen, height: lines.length };
+      break;
+    }
+  }
 }
 
 export function setNodeVisibility(doc: SceneDocument, id: NodeId, visible: boolean): SceneDocument {
@@ -527,6 +577,95 @@ export function cloneDocument(doc: SceneDocument): SceneDocument {
     gridRows: doc.gridRows,
     gridCols: doc.gridCols,
   };
+}
+
+export function moveInOrder(doc: SceneDocument, id: NodeId, newIndex: number): SceneDocument {
+  const node = doc.nodes.get(id);
+  if (!node) return doc;
+  const next = cloneDocShallow(doc);
+
+  if (node.parentId) {
+    const parent = next.nodes.get(node.parentId);
+    if (parent && parent.type === 'group') {
+      const g = parent as GroupNode;
+      const filtered = g.childIds.filter(c => c !== id);
+      const clamped = Math.max(0, Math.min(newIndex, filtered.length));
+      filtered.splice(clamped, 0, id);
+      next.nodes.set(g.id, { ...g, childIds: filtered } as GroupNode);
+    }
+  } else {
+    const filtered = next.rootOrder.filter(rid => rid !== id);
+    const clamped = Math.max(0, Math.min(newIndex, filtered.length));
+    filtered.splice(clamped, 0, id);
+    next.rootOrder = filtered;
+  }
+  return next;
+}
+
+function isDescendant(doc: SceneDocument, nodeId: NodeId, potentialAncestorId: NodeId): boolean {
+  let current = doc.nodes.get(nodeId);
+  while (current) {
+    if (current.parentId === potentialAncestorId) return true;
+    current = current.parentId ? doc.nodes.get(current.parentId) : undefined;
+  }
+  return false;
+}
+
+export function reparentNode(doc: SceneDocument, id: NodeId, newParentId: NodeId | null, index: number): SceneDocument {
+  const node = doc.nodes.get(id);
+  if (!node) return doc;
+  // Cycle detection: can't drop a node into its own descendant
+  if (newParentId && (newParentId === id || isDescendant(doc, newParentId, id))) return doc;
+  // No-op if already in the right place
+  if (node.parentId === newParentId) {
+    return moveInOrder(doc, id, index);
+  }
+
+  const next = cloneDocShallow(doc);
+  const oldParentId = node.parentId;
+
+  // Remove from old parent
+  if (oldParentId) {
+    const oldParent = next.nodes.get(oldParentId);
+    if (oldParent && oldParent.type === 'group') {
+      const g = oldParent as GroupNode;
+      next.nodes.set(g.id, { ...g, childIds: g.childIds.filter(c => c !== id) } as GroupNode);
+    }
+  } else {
+    next.rootOrder = next.rootOrder.filter(rid => rid !== id);
+  }
+
+  // Add to new parent
+  if (newParentId) {
+    const newParent = next.nodes.get(newParentId);
+    if (newParent && newParent.type === 'group') {
+      const g = newParent as GroupNode;
+      const children = [...g.childIds];
+      const clamped = Math.max(0, Math.min(index, children.length));
+      children.splice(clamped, 0, id);
+      next.nodes.set(g.id, { ...g, childIds: children } as GroupNode);
+    }
+  } else {
+    const clamped = Math.max(0, Math.min(index, next.rootOrder.length));
+    next.rootOrder.splice(clamped, 0, id);
+  }
+
+  // Update node's parentId
+  next.nodes.set(id, { ...node, parentId: newParentId } as SceneNode);
+
+  // Refresh group chains for both old and new parents
+  if (oldParentId) refreshGroupChain(next, oldParentId);
+  if (newParentId) refreshGroupChain(next, newParentId);
+
+  return next;
+}
+
+export function reparentNodes(doc: SceneDocument, ids: NodeId[], newParentId: NodeId | null, index: number): SceneDocument {
+  let next = doc;
+  for (let i = 0; i < ids.length; i++) {
+    next = reparentNode(next, ids[i], newParentId, index + i);
+  }
+  return next;
 }
 
 // Shallow clone: copies the Map reference (new Map from entries) and rootOrder array

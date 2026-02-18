@@ -61,7 +61,7 @@ export function getNodeText(node: SceneNode, key: string): string | null {
 
 export function setNodeText(
   node: SceneNode, key: string, text: string
-): { patch: Record<string, any>; bounds: Bounds } | null {
+): { patch: Record<string, unknown>; bounds: Bounds } | null {
   const b = { ...node.bounds };
 
   switch (node.type) {
@@ -415,6 +415,13 @@ export function getPrimaryTextKey(nodeType: string): string | null {
       return 'content';
     case 'tabs':
       return 'tab-0';
+    case 'list':
+    case 'breadcrumb':
+      return 'item-0';
+    case 'table':
+      return 'col-0';
+    case 'nav':
+      return 'logo';
     default:
       return null;
   }

@@ -1,10 +1,14 @@
 import { DrawingTool, GridPos, PreviewCell, ToolResult } from './types';
 import { NewNodeData } from '@/lib/scene/types';
+import { useSceneStore } from '@/hooks/use-scene-store';
 
-const BASE_TABS = ['Tab 1', 'Tab 2', 'Tab 3', 'Tab 4', 'Tab 5', 'Tab 6'];
+function getTabsSettings(): string[] {
+  const csv = useSceneStore.getState().toolSettings.tabs.defaultTabs;
+  return csv.split(',').map(s => s.trim()).filter(Boolean);
+}
 
-function computeTabCount(width: number): number {
-  return Math.max(2, Math.min(6, Math.floor(width / 8)));
+function computeTabCount(width: number, maxTabs: number): number {
+  return Math.max(2, Math.min(maxTabs, Math.floor(width / 8)));
 }
 
 function tabToken(label: string, active: boolean): string {
@@ -62,8 +66,9 @@ function buildTabsNodes(x: number, y: number, width: number, tabs: string[], act
 
 function createTabsResult(minR: number, minC: number, width: number, firstLabel?: string): ToolResult {
   const safeWidth = Math.max(width, 20);
-  const count = computeTabCount(safeWidth);
-  const tabs = BASE_TABS.slice(0, count);
+  const allTabs = getTabsSettings();
+  const count = computeTabCount(safeWidth, allTabs.length);
+  const tabs = allTabs.slice(0, count);
   if (firstLabel && tabs.length > 0) tabs[0] = firstLabel;
   const nodes = buildTabsNodes(minC, minR, safeWidth, tabs, 0);
   return { kind: 'createMany', nodes, groupName: 'Tabs' };
@@ -87,8 +92,9 @@ export const tabsTool: DrawingTool = {
     const minC = Math.min(start.col, current.col);
     const maxC = Math.max(start.col, current.col);
     const w = Math.max(maxC - minC + 1, 20);
-    const count = computeTabCount(w);
-    const tabs = BASE_TABS.slice(0, count);
+    const allTabs = getTabsSettings();
+    const count = computeTabCount(w, allTabs.length);
+    const tabs = allTabs.slice(0, count);
     return buildTabsPreview(minR, minC, w, tabs, 0);
   },
 

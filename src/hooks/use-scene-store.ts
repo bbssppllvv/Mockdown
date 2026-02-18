@@ -11,6 +11,7 @@ import {
   setNodeVisibility as setNodeVisibilityDoc,
   bringToFront as bringToFrontDoc, sendToBack as sendToBackDoc,
   groupNodes as groupNodesDoc, ungroupNode as ungroupNodeDoc,
+  moveInOrder as moveInOrderDoc, reparentNode as reparentNodeDoc, reparentNodes as reparentNodesDoc,
   cloneDocument,
 } from '@/lib/scene/document';
 import { renderScene } from '@/lib/scene/renderer';
@@ -93,6 +94,12 @@ interface SceneState {
   groupSelected(): void;
   ungroupSelected(): void;
 
+  // Layer reorder / reparent
+  reorderLayer(id: NodeId, newIndex: number): void;
+  reparentLayer(id: NodeId, parentId: NodeId | null, index: number): void;
+  reparentLayers(ids: NodeId[], parentId: NodeId | null, index: number): void;
+  renameNode(id: NodeId, name: string): void;
+
   // Z-order
   bringToFront(): void;
   sendToBack(): void;
@@ -168,10 +175,7 @@ export const useSceneStore = create<SceneState>((set, get) => {
     isDrawing: false,
     drawStart: null,
     preview: null,
-    toolSettings: {
-      spray: { ...DEFAULT_TOOL_SETTINGS.spray },
-      modal: { ...DEFAULT_TOOL_SETTINGS.modal },
-    },
+    toolSettings: { ...DEFAULT_TOOL_SETTINGS },
 
     selectedIds: [],
     selectInteraction: 'idle',
@@ -295,6 +299,32 @@ export const useSceneStore = create<SceneState>((set, get) => {
         renderedGrid: makeRenderedGrid(newDoc),
         selectedIds: [],
       });
+    },
+
+    // ─── Layer reorder / reparent ────────────────────────────────────
+
+    reorderLayer: (id, newIndex) => {
+      get().pushUndo();
+      const doc = moveInOrderDoc(get().document, id, newIndex);
+      set({ document: doc, renderedGrid: makeRenderedGrid(doc) });
+    },
+
+    reparentLayer: (id, parentId, index) => {
+      get().pushUndo();
+      const doc = reparentNodeDoc(get().document, id, parentId, index);
+      set({ document: doc, renderedGrid: makeRenderedGrid(doc) });
+    },
+
+    reparentLayers: (ids, parentId, index) => {
+      get().pushUndo();
+      const doc = reparentNodesDoc(get().document, ids, parentId, index);
+      set({ document: doc, renderedGrid: makeRenderedGrid(doc) });
+    },
+
+    renameNode: (id, name) => {
+      get().pushUndo();
+      const doc = updateNodeDoc(get().document, id, { name });
+      set({ document: doc, renderedGrid: makeRenderedGrid(doc) });
     },
 
     // ─── Z-order ──────────────────────────────────────────────────────

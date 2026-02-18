@@ -1,9 +1,12 @@
 import { DrawingTool, GridPos, PreviewCell } from './types';
 import { CharGrid } from '@/lib/grid-model';
 import { SparseCell } from '@/lib/scene/types';
+import { useSceneStore } from '@/hooks/use-scene-store';
 
-// Displacement radius: how far from the cursor characters get affected
-const RADIUS = 3;
+function getSmudgeRadius(): number {
+  return useSceneStore.getState().toolSettings.smudge.radius;
+}
+
 // How far characters get pushed (1–3 cells in drag direction + jitter)
 const MIN_SHIFT = 1;
 const MAX_SHIFT = 3;
@@ -38,6 +41,7 @@ function displaceArea(
   dirR: number, dirC: number,
   grid: CharGrid
 ): PreviewCell[] {
+  const RADIUS = getSmudgeRadius();
   const cells: PreviewCell[] = [];
 
   for (let dr = -RADIUS; dr <= RADIUS; dr++) {
@@ -86,6 +90,7 @@ export const smudgeTool: DrawingTool = {
 
   onDragStart(pos: GridPos, grid: CharGrid): PreviewCell[] | null {
     displaced = new Set();
+    const RADIUS = getSmudgeRadius();
     // On start, scatter chars randomly outward (no drag direction yet)
     const cells: PreviewCell[] = [];
     for (let dr = -RADIUS; dr <= RADIUS; dr++) {

@@ -1,16 +1,20 @@
 import { DrawingTool, GridPos, PreviewCell } from './types';
 import { CharGrid } from '@/lib/grid-model';
 import { SparseCell } from '@/lib/scene/types';
+import { useSceneStore } from '@/hooks/use-scene-store';
 
 const SCATTER_CHARS = ['★', '☆', '✦', '✧', '✶', '✴', '●', '○', '◆', '◇', '♦', '♥', '♠', '♣'];
-const SCATTER_RADIUS = 4;
-const SCATTER_DENSITY = 3;
+
+function getScatterSettings() {
+  return useSceneStore.getState().toolSettings.scatter;
+}
 
 function scatterAt(row: number, col: number, grid: CharGrid): PreviewCell[] {
+  const { radius, density } = getScatterSettings();
   const cells: PreviewCell[] = [];
-  for (let i = 0; i < SCATTER_DENSITY; i++) {
+  for (let i = 0; i < density; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const dist = Math.random() * SCATTER_RADIUS;
+    const dist = Math.random() * radius;
     const dr = Math.round(Math.sin(angle) * dist);
     const dc = Math.round(Math.cos(angle) * dist);
     const r = row + dr;

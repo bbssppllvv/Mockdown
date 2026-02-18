@@ -21,6 +21,9 @@ export class PolylineTracker {
   private lastPos: GridPos | null = null;
   private lastDir: 'h' | 'v' | null = null;
 
+  /** Minimum perpendicular cells from the current axis before a turn is committed */
+  private static TURN_THRESHOLD = 2;
+
   reset(start: GridPos) {
     this.waypoints = [{ ...start }];
     this.lastPos = { ...start };
@@ -36,36 +39,47 @@ export class PolylineTracker {
     // Skip if no movement at all
     if (dr === 0 && dc === 0) return;
 
-    // Require clear dominance to avoid diagonal noise
-    let candidateDir: 'h' | 'v' | null;
-    if (dc > dr) candidateDir = 'h';
-    else if (dr > dc) candidateDir = 'v';
-    else candidateDir = this.lastDir; // equal → keep current
-
-    if (candidateDir === null) {
-      // First move: just set direction
-      this.lastDir = dc >= dr ? 'h' : 'v';
+    // First move: establish direction (require clear dominance)
+    if (this.lastDir === null) {
+      if (dc > dr) this.lastDir = 'h';
+      else if (dr > dc) this.lastDir = 'v';
+      // If equal, wait for a clearer signal
       this.lastPos = { ...current };
       return;
     }
 
-    if (this.lastDir !== null && candidateDir !== this.lastDir) {
-      // Direction changed — commit a corner at the turning point
+    // Determine candidate direction from incremental movement
+    let candidateDir: 'h' | 'v';
+    if (dc > dr) candidateDir = 'h';
+    else if (dr > dc) candidateDir = 'v';
+    else candidateDir = this.lastDir; // equal → keep current
+
+    if (candidateDir !== this.lastDir) {
+      // Incremental direction changed — verify with perpendicular threshold.
+      // Measure how far the cursor has drifted from the current axis
+      // (relative to the last waypoint) to filter out jitter.
       const lastWP = this.waypoints[this.waypoints.length - 1];
+      const perpDev = this.lastDir === 'h'
+        ? Math.abs(current.row - lastWP.row)
+        : Math.abs(current.col - lastWP.col);
+
+      if (perpDev < PolylineTracker.TURN_THRESHOLD) {
+        // Below threshold — ignore direction change (jitter)
+        this.lastPos = { ...current };
+        return;
+      }
+
+      // Confirmed turn — commit a corner at the axis-projected position
       let corner: GridPos;
       if (this.lastDir === 'h') {
-        // Was horizontal — corner at (lastWP.row, lastPos.col)
         corner = { row: lastWP.row, col: this.lastPos.col };
       } else {
-        // Was vertical — corner at (lastPos.row, lastWP.col)
         corner = { row: this.lastPos.row, col: lastWP.col };
       }
 
       if (corner.row !== lastWP.row || corner.col !== lastWP.col) {
         this.waypoints.push(corner);
       }
-      this.lastDir = candidateDir;
-    } else if (this.lastDir === null) {
       this.lastDir = candidateDir;
     }
 

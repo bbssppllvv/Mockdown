@@ -1,6 +1,15 @@
 import { DrawingTool, GridPos, PreviewCell, ToolResult } from './types';
 import { CharGrid } from '@/lib/grid-model';
 import { BOX } from '@/lib/box-chars';
+import { useSceneStore } from '@/hooks/use-scene-store';
+
+function getTableSettings() {
+  return useSceneStore.getState().toolSettings.table;
+}
+
+function parseColumns(csv: string): string[] {
+  return csv.split(',').map(s => s.trim()).filter(Boolean);
+}
 
 function buildTablePreview(start: GridPos, end: GridPos): PreviewCell[] {
   const minR = Math.min(start.row, end.row);
@@ -10,6 +19,9 @@ function buildTablePreview(start: GridPos, end: GridPos): PreviewCell[] {
   const h = maxR - minR;
   const w = maxC - minC;
   if (h < 2 || w < 7) return [];
+
+  const { defaultColumns } = getTableSettings();
+  const labels = parseColumns(defaultColumns);
 
   const cols = w < 15 ? 2 : w < 30 ? 3 : 4;
   const colPositions: number[] = [minC];
@@ -50,13 +62,12 @@ function buildTablePreview(start: GridPos, end: GridPos): PreviewCell[] {
     }
   }
 
-  const labels = ['Col A', 'Col B', 'Col C', 'Col D'];
   if (h >= 2) {
     const headerR = minR + 1;
     for (let i = 0; i < cols; i++) {
       const cStart = colPositions[i] + 2;
       const cEnd = colPositions[i + 1];
-      const label = labels[i];
+      const label = labels[i] ?? `Col ${String.fromCharCode(65 + i)}`;
       for (let j = 0; j < label.length && cStart + j < cEnd; j++) {
         const idx = cells.findIndex(cell => cell.row === headerR && cell.col === cStart + j);
         if (idx !== -1) cells[idx].char = label[j];
@@ -74,16 +85,18 @@ export const tableTool: DrawingTool = {
   icon: 'Table',
 
   onClick(pos: GridPos): ToolResult {
-    const columns = ['Col A', 'Col B', 'Col C'];
-    const colWidth = 10;
+    const { defaultColumns, defaultColWidth } = getTableSettings();
+    const columns = parseColumns(defaultColumns);
+    const colWidth = defaultColWidth;
+    const totalWidth = columns.length * colWidth + 1;
     return {
       kind: 'create',
       node: {
         type: 'table',
         name: 'Table',
-        bounds: { x: pos.col, y: pos.row, width: 31, height: 6 },
+        bounds: { x: pos.col, y: pos.row, width: totalWidth, height: 6 },
         columns,
-        columnWidths: [colWidth, colWidth, colWidth],
+        columnWidths: columns.map(() => colWidth),
         rowCount: 3,
       },
     };
@@ -92,8 +105,11 @@ export const tableTool: DrawingTool = {
   onDragStart(_pos: GridPos) { return []; },
 
   onDrag(start: GridPos, current: GridPos): PreviewCell[] | null {
+    const { defaultColumns, defaultColWidth } = getTableSettings();
+    const columns = parseColumns(defaultColumns);
+    const defaultW = columns.length * defaultColWidth;
     if (start.row === current.row && start.col === current.col) {
-      return buildTablePreview(start, { row: start.row + 5, col: start.col + 30 });
+      return buildTablePreview(start, { row: start.row + 5, col: start.col + defaultW });
     }
     return buildTablePreview(start, current);
   },
@@ -106,9 +122,13 @@ export const tableTool: DrawingTool = {
     const w = maxC - minC;
     if (maxR - minR < 2 || w < 7) return null;
 
+    const { defaultColumns } = getTableSettings();
+    const allColumns = parseColumns(defaultColumns);
+
     const colCount = w < 15 ? 2 : w < 30 ? 3 : 4;
-    const labels = ['Col A', 'Col B', 'Col C', 'Col D'];
-    const columns = labels.slice(0, colCount);
+    const columns = allColumns.length >= colCount
+      ? allColumns.slice(0, colCount)
+      : Array.from({ length: colCount }, (_, i) => allColumns[i] ?? `Col ${String.fromCharCode(65 + i)}`);
     const colWidth = Math.round(w / colCount);
     const columnWidths = Array(colCount).fill(colWidth);
 

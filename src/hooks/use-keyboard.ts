@@ -1,16 +1,38 @@
 import { useEffect } from 'react';
 import { useEditorStore } from './use-editor-store';
+import { getNodeText, getPrimaryTextKey } from '@/lib/scene/text-editing';
 
 export function useKeyboard() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept when user is typing in an input/textarea (e.g. PropertiesPanel)
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) {
+      const s = useEditorStore.getState();
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const isBridgeInput = target?.dataset?.editorInputBridge === 'true';
+
+      // Escape always returns to Select tool (Figma-style), regardless of focused element.
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (s.textInputActive) {
+          s.stopEditing();
+          return;
+        }
+        if (s.generateSelection) s.clearGenerate();
+        if (s.isDrawing) {
+          s.setIsDrawing(false);
+          s.setDrawStart(null);
+          s.setPreview(null);
+        }
+        if (s.selectedIds.length > 0) s.clearSelection();
+        if (s.drillScope) s.setDrillScope(null);
+        if (s.activeTool !== 'select') s.setActiveTool('select');
         return;
       }
 
-      const s = useEditorStore.getState();
+      // Don't intercept when user is typing in an input/textarea (e.g. PropertiesPanel)
+      if ((tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) && !isBridgeInput) {
+        return;
+      }
 
       // When generate prompt is open, don't intercept anything
       if (s.generateSelection) return;
@@ -101,8 +123,25 @@ export function useKeyboard() {
         return;
       }
 
+      // Enter: edit selected object's primary text field (Figma-style)
+      if (s.activeTool === 'select' && s.selectedIds.length === 1 && e.key === 'Enter') {
+        const node = s.document.nodes.get(s.selectedIds[0]);
+        if (node) {
+          const key = getPrimaryTextKey(node.type);
+          if (key) {
+            const text = getNodeText(node, key);
+            if (text !== null) {
+              e.preventDefault();
+              s.pushUndo();
+              s.startEditing(node.id, key, text.length);
+              return;
+            }
+          }
+        }
+      }
+
       // Delete/Backspace: remove selected objects (any tool, like Figma)
-      if (s.selectedIds.length > 0 && (e.key === 'Delete' || e.key === 'Backspace')) {
+      if (s.selectedIds.length > 0 && (e.key === 'Delete' || e.key === 'Del' || e.key === 'Backspace')) {
         e.preventDefault();
         s.pushUndo();
         s.removeNodes([...s.selectedIds]);
@@ -117,46 +156,14 @@ export function useKeyboard() {
         if (e.key === 'ArrowRight') { e.preventDefault(); s.pushUndo(); s.moveNodes([...s.selectedIds], 0, 1); return; }
       }
 
-      // ── Consolidated Escape: single priority chain ──────────────────
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        // 1. Stop text editing (if still active without the earlier block catching it)
-        if (s.textInputActive) {
-          s.stopEditing();
-          return;
-        }
-        // 2. Cancel active drawing
-        if (s.isDrawing) {
-          s.setIsDrawing(false);
-          s.setDrawStart(null);
-          s.setPreview(null);
-          return;
-        }
-        // 3. Clear selection (and exit drill scope if inside one)
-        if (s.selectedIds.length > 0) {
-          s.clearSelection();
-          if (s.drillScope) s.setDrillScope(null);
-          return;
-        }
-        // 4. Exit drill scope
-        if (s.drillScope) {
-          s.setDrillScope(null);
-          return;
-        }
-        // 5. Reset tool to select
-        if (s.activeTool !== 'select') {
-          s.setActiveTool('select');
-          return;
-        }
-        return;
-      }
-
     };
 
     const handlePaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const isBridgeInput = target?.dataset?.editorInputBridge === 'true';
       // Don't intercept paste in inputs/textareas (e.g. PropertiesPanel)
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) {
+      if ((tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) && !isBridgeInput) {
         return;
       }
       if (useEditorStore.getState().generateSelection) return;
