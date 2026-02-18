@@ -403,7 +403,8 @@ function ToolSettingsPanel() {
   );
 }
 
-export function PropertiesPanel() {
+/** Shared inspector content used by both desktop sidebar and mobile sheet */
+export function PropertiesPanelContent({ showLayers = true }: { showLayers?: boolean }) {
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const doc = useEditorStore((s) => s.document);
   const drillScope = useEditorStore((s) => s.drillScope);
@@ -466,135 +467,148 @@ export function PropertiesPanel() {
   };
 
   return (
-    <aside className="hidden md:flex w-[280px] min-w-[280px] h-full border-l border-border/60 bg-background/95 flex-col">
-      <div className="px-3 py-2 border-b border-border/60">
-        <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wider">Inspector</div>
-      </div>
+    <div className="flex flex-col gap-4">
+      {drillNode && drillNode.type === 'group' && (
+        <div className="rounded-md border border-border/70 bg-foreground/5 p-2 text-xs">
+          <div className="font-semibold text-foreground/70">Inside Group: {drillNode.name}</div>
+          <button
+            onClick={() => setDrillScope(null)}
+            className="mt-2 rounded-md border border-border/70 px-2 py-1 text-[11px] font-semibold text-foreground/60 hover:bg-background"
+          >
+            Exit Group
+          </button>
+        </div>
+      )}
 
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-4">
-        {drillNode && drillNode.type === 'group' && (
-          <div className="rounded-md border border-border/70 bg-foreground/5 p-2 text-xs">
-            <div className="font-semibold text-foreground/70">Inside Group: {drillNode.name}</div>
-            <button
-              onClick={() => setDrillScope(null)}
-              className="mt-2 rounded-md border border-border/70 px-2 py-1 text-[11px] font-semibold text-foreground/60 hover:bg-background"
-            >
-              Exit Group
-            </button>
-          </div>
-        )}
+      {selectedIds.length === 0 && <ToolSettingsPanel />}
 
-        {selectedIds.length === 0 && <ToolSettingsPanel />}
-
+      {showLayers && (
         <Section title={drillScope ? 'Layers (Scope)' : 'Layers'}>
-          <div className="rounded-md border border-border/70 bg-foreground/5 p-1 flex flex-col gap-1">
+          <div className="flex flex-col font-mono text-xs">
             {layerRows.length === 0 && (
-              <div className="text-xs text-foreground/40 px-1 py-1">No objects</div>
+              <div className="text-foreground/25 py-0.5">~ empty ~</div>
             )}
             {layerRows.map((row) => {
               const node = row.node;
               const selected = selectedIds.includes(node.id);
               return (
-                <div key={node.id} className="flex items-center gap-1">
-                  <button
-                    onClick={() => row.isGroup && toggleGroupCollapse(node.id)}
-                    className="min-w-8 rounded border border-border/70 px-1 py-0.5 text-[11px] font-mono text-foreground/60 hover:bg-background"
-                    title={row.isGroup ? (row.collapsed ? 'Expand group' : 'Collapse group') : 'Item'}
-                  >
-                    {row.isGroup ? (row.collapsed ? '[+]' : '[-]') : '[ ]'}
-                  </button>
+                <div
+                  key={node.id}
+                  className={`flex items-center gap-1.5 py-[1px] group cursor-default ${
+                    selected ? 'text-[#2563eb]' : 'text-foreground hover:text-foreground'
+                  }`}
+                >
                   <button
                     onClick={() => {
                       pushUndo();
                       setNodeVisibility(node.id, !node.visible);
                     }}
-                    className="min-w-8 rounded border border-border/70 px-1 py-0.5 text-[11px] font-mono text-foreground/60 hover:bg-background"
+                    className="w-3 text-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                     title={node.visible ? 'Hide' : 'Show'}
                   >
-                    {node.visible ? '[x]' : '[ ]'}
+                    {node.visible ? '*' : '.'}
                   </button>
                   <button
                     onClick={() => setSelection([node.id])}
                     onDoubleClick={() => {
                       if (node.type === 'group') setDrillScope(node.id);
                     }}
-                    className={`flex-1 text-left rounded border px-1.5 py-0.5 text-[11px] font-mono whitespace-pre ${
-                      selected
-                        ? 'border-[#2563eb]/40 bg-[#2563eb]/10 text-[#2563eb]'
-                        : 'border-border/70 text-foreground/70 hover:bg-background'
-                    }`}
+                    className="flex-1 text-left whitespace-pre truncate"
                     title={node.type === 'group' ? 'Double click to enter group' : undefined}
                   >
-                    {`${row.prefix}${node.name} (${node.type})`}
+                    <span className="text-foreground/20">{row.prefix}</span>
+                    {row.isGroup && (
+                      <span
+                        onClick={(e) => { e.stopPropagation(); toggleGroupCollapse(node.id); }}
+                        className="cursor-pointer"
+                      >
+                        {row.collapsed ? '+ ' : '- '}
+                      </span>
+                    )}
+                    {node.name}
                   </button>
                 </div>
               );
             })}
           </div>
         </Section>
+      )}
 
-        {selectedIds.length > 1 && (
-          <div className="text-xs text-foreground/50 leading-relaxed">
-            {selectedIds.length} objects selected. Use single selection to edit detailed properties.
-          </div>
-        )}
+      {selectedIds.length > 1 && (
+        <div className="text-xs text-foreground/50 leading-relaxed">
+          {selectedIds.length} objects selected. Use single selection to edit detailed properties.
+        </div>
+      )}
 
-        {selectedNode && (
-          <>
-            <Section title="Object">
-              <FieldRow label="type">
-                <div className="rounded-md border border-border/70 px-2 py-1 text-xs font-mono text-foreground/70 bg-foreground/5">
-                  {selectedNode.type}
-                </div>
-              </FieldRow>
-              <FieldRow label="name">
-                <CommitTextInput
-                  value={selectedNode.name}
-                  onCommit={(name) => commitPatch(selectedNode, { name })}
-                />
-              </FieldRow>
-            </Section>
-
-            <Section title="Bounds">
-              <FieldRow label="x">
-                <CommitNumberInput
-                  value={selectedNode.bounds.x}
-                  min={0}
-                  onCommit={(x) => commitX(selectedNode, x)}
-                />
-              </FieldRow>
-              <FieldRow label="y">
-                <CommitNumberInput
-                  value={selectedNode.bounds.y}
-                  min={0}
-                  onCommit={(y) => commitY(selectedNode, y)}
-                />
-              </FieldRow>
-              <FieldRow label="width">
-                <CommitNumberInput
-                  value={selectedNode.bounds.width}
-                  min={1}
-                  onCommit={(width) => commitWidth(selectedNode, width)}
-                />
-              </FieldRow>
-              <FieldRow label="height">
-                <CommitNumberInput
-                  value={selectedNode.bounds.height}
-                  min={1}
-                  onCommit={(height) => commitHeight(selectedNode, height)}
-                />
-              </FieldRow>
-            </Section>
-
-            <Section title="Type Props">
-              <NodeSpecificFields
-                node={selectedNode}
-                onPatch={(patch) => commitPatch(selectedNode, patch)}
-                onDrill={(id) => setDrillScope(id)}
+      {selectedNode && (
+        <>
+          <Section title="Object">
+            <FieldRow label="type">
+              <div className="rounded-md border border-border/70 px-2 py-1 text-xs font-mono text-foreground/70 bg-foreground/5">
+                {selectedNode.type}
+              </div>
+            </FieldRow>
+            <FieldRow label="name">
+              <CommitTextInput
+                value={selectedNode.name}
+                onCommit={(name) => commitPatch(selectedNode, { name })}
               />
-            </Section>
-          </>
-        )}
+            </FieldRow>
+          </Section>
+
+          <Section title="Bounds">
+            <FieldRow label="x">
+              <CommitNumberInput
+                value={selectedNode.bounds.x}
+                min={0}
+                onCommit={(x) => commitX(selectedNode, x)}
+              />
+            </FieldRow>
+            <FieldRow label="y">
+              <CommitNumberInput
+                value={selectedNode.bounds.y}
+                min={0}
+                onCommit={(y) => commitY(selectedNode, y)}
+              />
+            </FieldRow>
+            <FieldRow label="width">
+              <CommitNumberInput
+                value={selectedNode.bounds.width}
+                min={1}
+                onCommit={(width) => commitWidth(selectedNode, width)}
+              />
+            </FieldRow>
+            <FieldRow label="height">
+              <CommitNumberInput
+                value={selectedNode.bounds.height}
+                min={1}
+                onCommit={(height) => commitHeight(selectedNode, height)}
+              />
+            </FieldRow>
+          </Section>
+
+          <Section title="Type Props">
+            <NodeSpecificFields
+              node={selectedNode}
+              onPatch={(patch) => commitPatch(selectedNode, patch)}
+              onDrill={(id) => setDrillScope(id)}
+            />
+          </Section>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function PropertiesPanel() {
+  return (
+    <aside className="hidden md:flex w-[280px] min-w-[280px] h-full border-l border-border/60 bg-background/95 flex-col">
+      <div className="px-3 py-2 border-b border-border/60">
+        <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wider">Inspector</div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-3">
+        <PropertiesPanelContent />
       </div>
     </aside>
   );

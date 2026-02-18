@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   MousePointer2,
   Type,
@@ -42,12 +42,17 @@ import {
   Grid3x3,
   Copy,
   ChevronRight,
+  ArrowUpToLine,
+  ArrowDownToLine,
+  SlidersHorizontal,
+  X,
 } from 'lucide-react';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { ToolId } from '@/lib/constants';
 import { toolMap } from '@/components/tools/registry';
 import { copyAsMarkdown } from '@/lib/clipboard';
 import { GridSizeSelector } from './GridSizeSelector';
+import { PropertiesPanelContent } from './PropertiesPanel';
 import { toast } from 'sonner';
 
 const IC = 'h-5 w-5';
@@ -117,6 +122,7 @@ const sheetDraw: ToolEntry[] = [
 
 export function MobileToolbar() {
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [propsSheetOpen, setPropsSheetOpen] = useState(false);
 
   const activeTool = useEditorStore((s) => s.activeTool);
   const setActiveTool = useEditorStore((s) => s.setActiveTool);
@@ -132,9 +138,26 @@ export function MobileToolbar() {
   const cursorRow = useEditorStore((s) => s.cursorRow);
   const cursorCol = useEditorStore((s) => s.cursorCol);
   const grid = useEditorStore((s) => s.renderedGrid);
+  const selectedIds = useEditorStore((s) => s.selectedIds);
+  const pushUndo = useEditorStore((s) => s.pushUndo);
+  const removeNodes = useEditorStore((s) => s.removeNodes);
+  const bringToFront = useEditorStore((s) => s.bringToFront);
+  const sendToBack = useEditorStore((s) => s.sendToBack);
+  const clearSelection = useEditorStore((s) => s.clearSelection);
+  const doc = useEditorStore((s) => s.document);
 
   const toolLabel = toolMap[activeTool]?.label ?? activeTool;
   const canvasHasContent = undoStack.length > 0;
+  const hasSelection = selectedIds.length > 0;
+
+  const selectedNodeType = hasSelection && selectedIds.length === 1
+    ? doc.nodes.get(selectedIds[0])?.type ?? null
+    : null;
+
+  // Auto-close properties sheet when selection is cleared
+  useEffect(() => {
+    if (!hasSelection) setPropsSheetOpen(false);
+  }, [hasSelection]);
 
   const selectTool = useCallback(
     (id: ToolId) => {
@@ -164,9 +187,9 @@ export function MobileToolbar() {
 
   return (
     <>
-      {/* ── Floating top-left: Undo / Redo / Clear ── */}
+      {/* ── Floating top-left: Undo / Redo / Clear (hidden when selection bar is showing) ── */}
       <div
-        className="fixed top-3 left-3 z-50 md:hidden flex items-center gap-1 bg-background/90 backdrop-blur-sm border border-border/60 rounded-xl px-1 py-0.5 shadow-sm"
+        className={`fixed top-3 left-3 z-50 md:hidden flex items-center gap-1 bg-background/90 backdrop-blur-sm border border-border/60 rounded-xl px-1 py-0.5 shadow-sm ${hasSelection ? 'hidden' : ''}`}
         style={{ top: 'calc(12px + env(safe-area-inset-top, 0px))' }}
       >
         <button
@@ -196,9 +219,64 @@ export function MobileToolbar() {
         )}
       </div>
 
+      {/* ── Floating selection bar (appears when objects selected) ── */}
+      {hasSelection && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 z-50 md:hidden flex items-center gap-1 bg-background/95 backdrop-blur-sm border border-border/60 rounded-xl px-1.5 py-1 shadow-lg"
+          style={{ top: 'calc(12px + env(safe-area-inset-top, 0px))' }}
+        >
+          <span className="text-[10px] font-semibold text-foreground/50 px-1.5 truncate max-w-[80px]">
+            {selectedIds.length > 1
+              ? `${selectedIds.length} sel`
+              : selectedNodeType ?? 'sel'}
+          </span>
+          <div className="w-px h-4 bg-border/60" />
+          <button
+            onClick={() => { pushUndo(); removeNodes([...selectedIds]); }}
+            className="p-1.5 rounded-lg text-red-500 active:bg-red-500/10"
+            title="Delete selected"
+          >
+            <Trash2 className={IC_XS} />
+          </button>
+          <button
+            onClick={() => bringToFront()}
+            className="p-1.5 rounded-lg text-foreground/50 active:bg-foreground/10"
+            title="Bring to front"
+          >
+            <ArrowUpToLine className={IC_XS} />
+          </button>
+          <button
+            onClick={() => sendToBack()}
+            className="p-1.5 rounded-lg text-foreground/50 active:bg-foreground/10"
+            title="Send to back"
+          >
+            <ArrowDownToLine className={IC_XS} />
+          </button>
+          <div className="w-px h-4 bg-border/60" />
+          <button
+            onClick={() => setPropsSheetOpen((v) => !v)}
+            className={`p-1.5 rounded-lg transition-colors ${
+              propsSheetOpen
+                ? 'text-[#2563eb] bg-[#2563eb]/10'
+                : 'text-foreground/50 active:bg-foreground/10'
+            }`}
+            title="Properties"
+          >
+            <SlidersHorizontal className={IC_XS} />
+          </button>
+          <button
+            onClick={() => clearSelection()}
+            className="p-1.5 rounded-lg text-foreground/30 active:bg-foreground/10"
+            title="Deselect"
+          >
+            <X className={IC_XS} />
+          </button>
+        </div>
+      )}
+
       {/* ── Floating top-right: AI + Copy ── */}
       <div
-        className="fixed right-3 z-50 md:hidden flex items-center gap-1.5"
+        className={`fixed right-3 z-50 md:hidden flex items-center gap-1.5 ${hasSelection ? 'hidden' : ''}`}
         style={{ top: 'calc(12px + env(safe-area-inset-top, 0px))' }}
       >
         <button
@@ -223,6 +301,41 @@ export function MobileToolbar() {
           Copy
         </button>
       </div>
+
+      {/* ── Properties sheet (mobile inspector) ── */}
+      {propsSheetOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[90] bg-black/30 md:hidden"
+            onClick={() => setPropsSheetOpen(false)}
+          />
+          <div className="fixed inset-x-0 bottom-0 z-[95] md:hidden animate-in slide-in-from-bottom duration-200">
+            <div
+              className="bg-background border-t border-border/60 rounded-t-2xl max-h-[60vh] overflow-y-auto"
+              style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 34px))' }}
+            >
+              {/* Drag handle */}
+              <div className="flex justify-center pt-2 pb-1">
+                <div className="w-10 h-1 rounded-full bg-foreground/20" />
+              </div>
+              <div className="flex items-center justify-between px-4 pb-1">
+                <span className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wider">
+                  Inspector
+                </span>
+                <button
+                  onClick={() => setPropsSheetOpen(false)}
+                  className="p-1 rounded-lg text-foreground/40 active:bg-foreground/10"
+                >
+                  <X className={IC_XS} />
+                </button>
+              </div>
+              <div className="px-4 pb-4">
+                <PropertiesPanelContent showLayers={false} />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── Bottom sheet backdrop + panel ── */}
       {sheetOpen && (
