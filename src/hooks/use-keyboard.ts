@@ -101,15 +101,16 @@ export function useKeyboard() {
         return;
       }
 
-      // Select tool: selection-based operations
+      // Delete/Backspace: remove selected objects (any tool, like Figma)
+      if (s.selectedIds.length > 0 && (e.key === 'Delete' || e.key === 'Backspace')) {
+        e.preventDefault();
+        s.pushUndo();
+        s.removeNodes([...s.selectedIds]);
+        return;
+      }
+
+      // Arrow keys: move selected objects (select tool only)
       if (s.activeTool === 'select' && s.selectedIds.length > 0) {
-        if (e.key === 'Delete' || e.key === 'Backspace') {
-          e.preventDefault();
-          s.pushUndo();
-          s.removeNodes([...s.selectedIds]);
-          return;
-        }
-        // Arrow keys move selected nodes
         if (e.key === 'ArrowUp') { e.preventDefault(); s.pushUndo(); s.moveNodes([...s.selectedIds], -1, 0); return; }
         if (e.key === 'ArrowDown') { e.preventDefault(); s.pushUndo(); s.moveNodes([...s.selectedIds], 1, 0); return; }
         if (e.key === 'ArrowLeft') { e.preventDefault(); s.pushUndo(); s.moveNodes([...s.selectedIds], 0, -1); return; }
