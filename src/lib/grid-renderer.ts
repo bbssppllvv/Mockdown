@@ -57,7 +57,8 @@ export function drawGrid(
   hoverPos: CursorPos | null = null,
   generateSelection: GenerateSelectionRect | null = null,
   selection: SelectionRect | null = null,
-  colors: ThemeColors = LIGHT_COLORS
+  colors: ThemeColors = LIGHT_COLORS,
+  bgImage?: { image: HTMLImageElement; opacity: number } | null
 ): void {
   const { cellWidth, cellHeight, showGridLines } = config;
   const totalWidth = grid.cols * cellWidth;
@@ -69,6 +70,21 @@ export function drawGrid(
   // Background
   ctx.fillStyle = colors.gridBg;
   ctx.fillRect(0, 0, totalWidth, totalHeight);
+
+  // Background image (trace mode)
+  if (bgImage && bgImage.image.complete && bgImage.image.naturalWidth > 0) {
+    ctx.save();
+    ctx.globalAlpha = bgImage.opacity;
+    const imgW = bgImage.image.naturalWidth;
+    const imgH = bgImage.image.naturalHeight;
+    const scaleRatio = Math.min(totalWidth / imgW, totalHeight / imgH);
+    const drawW = imgW * scaleRatio;
+    const drawH = imgH * scaleRatio;
+    const drawX = (totalWidth - drawW) / 2;
+    const drawY = (totalHeight - drawH) / 2;
+    ctx.drawImage(bgImage.image, drawX, drawY, drawW, drawH);
+    ctx.restore();
+  }
 
   // Grid lines
   if (showGridLines) {

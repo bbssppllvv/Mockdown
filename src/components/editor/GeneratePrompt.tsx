@@ -4,7 +4,26 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { Wand2, Loader2, X } from 'lucide-react';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { streamGenerateContent, postProcessGenerate } from '@/lib/ai';
+import { streamGenerateNodes } from '@/lib/ai-structured';
+import { NewNodeData } from '@/lib/scene/types';
 
+// ── UI keyword detection ────────────────────────────────────────────────────
+const UI_KEYWORDS = [
+  'form', 'dashboard', 'navbar', 'card', 'button', 'table', 'login',
+  'settings', 'page', 'dialog', 'modal', 'sidebar', 'menu', 'sign',
+  'register', 'pricing', 'layout', 'header', 'footer', 'profile',
+  'checkout', 'search', 'nav', 'tab', 'list', 'panel', 'widget',
+  'toolbar', 'dropdown', 'input', 'calendar', 'notification',
+  'upload', 'progress', 'pagination', 'breadcrumb', 'toggle',
+  'checkbox', 'radio', 'landing', 'homepage', 'contact',
+];
+
+function isUIPrompt(text: string): boolean {
+  const lower = text.toLowerCase();
+  return UI_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+// ── Suggestions ─────────────────────────────────────────────────────────────
 const EMPTY_SUGGESTIONS = [
   'Sign-in form',
   'Navigation bar',
@@ -23,6 +42,9 @@ const CONTENT_SUGGESTIONS = [
   'Redesign from scratch',
 ];
 
+// All empty suggestions are UI prompts → always use structured mode
+const STRUCTURED_SUGGESTIONS = new Set(EMPTY_SUGGESTIONS);
+
 export function GeneratePrompt() {
   const generateSelection = useEditorStore((s) => s.generateSelection);
   const generateLoading = useEditorStore((s) => s.generateLoading);
@@ -31,7 +53,9 @@ export function GeneratePrompt() {
   const generateMode = useEditorStore((s) => s.generateMode);
   const setGenerateMode = useEditorStore((s) => s.setGenerateMode);
   const pushUndo = useEditorStore((s) => s.pushUndo);
+  const addNode = useEditorStore((s) => s.addNode);
   const applyChars = useEditorStore((s) => s.applyChars);
+  const removeNodes = useEditorStore((s) => s.removeNodes);
   const setCharsRaw = useEditorStore((s) => s.setCharsRaw);
   const grid = useEditorStore((s) => s.renderedGrid);
 
@@ -71,10 +95,79 @@ export function GeneratePrompt() {
   const width = maxCol - minCol + 1;
   const height = maxRow - minRow + 1;
 
-  const handleSubmit = async (overridePrompt?: string) => {
-    const finalPrompt = overridePrompt ?? prompt;
-    if (!finalPrompt.trim() || generateLoading) return;
+  // ── Structured mode: stream SceneNodes ──────────────────────────────────
+  const handleStructuredSubmit = async (finalPrompt: string) => {
+    setError('');
+    setGenerateLoading(true);
+    pushUndo();
 
+    // Remove existing nodes in the generation area
+    const doc = useEditorStore.getState().document;
+    const overlapIds: string[] = [];
+    for (const [id, node] of doc.nodes) {
+      if (node.type === 'group') continue;
+      const b = node.bounds;
+      if (
+        b.y >= minRow && b.x >= minCol &&
+        b.y + b.height - 1 <= maxRow && b.x + b.width - 1 <= maxCol
+      ) {
+        overlapIds.push(id);
+      }
+    }
+    if (overlapIds.length > 0) {
+      removeNodes(overlapIds);
+    }
+
+    abortRef.current = new AbortController();
+    const createdIds: string[] = [];
+
+    try {
+      const allNodes = await streamGenerateNodes(
+        finalPrompt,
+        width,
+        height,
+        (node: NewNodeData) => {
+          // Progressive: add each node immediately with offset
+          const offsetNode = {
+            ...node,
+            bounds: {
+              ...node.bounds,
+              x: node.bounds.x + minCol,
+              y: node.bounds.y + minRow,
+            },
+          } as NewNodeData;
+          const id = addNode(offsetNode);
+          createdIds.push(id);
+        },
+        hasContent ? existingContent : undefined,
+        abortRef.current.signal,
+        generateMode,
+      );
+
+      // Group all created nodes
+      if (createdIds.length > 1) {
+        useEditorStore.getState().setSelection(createdIds);
+        useEditorStore.getState().groupSelected();
+      } else if (createdIds.length === 1) {
+        useEditorStore.getState().setSelection(createdIds);
+      }
+
+      clearGenerate();
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return;
+      // If some nodes were created, they remain (undo works)
+      if (createdIds.length > 0) {
+        useEditorStore.getState().setSelection(createdIds);
+      }
+      setError(err instanceof Error ? err.message : 'Generation failed');
+    } finally {
+      setGenerateLoading(false);
+      abortRef.current = null;
+    }
+  };
+
+  // ── ASCII mode: stream raw text ─────────────────────────────────────────
+  const handleAsciiSubmit = async (finalPrompt: string) => {
     setError('');
     setGenerateLoading(true);
     pushUndo();
@@ -96,7 +189,6 @@ export function GeneratePrompt() {
         width,
         height,
         (lineIndex, fittedLine) => {
-          // Progressive rendering: write each line without junction resolution
           const lineChars: { row: number; col: number; char: string }[] = [];
           for (let j = 0; j < fittedLine.length && j < width; j++) {
             lineChars.push({ row: minRow + lineIndex, col: minCol + j, char: fittedLine[j] });
@@ -108,7 +200,6 @@ export function GeneratePrompt() {
         generateMode,
       );
 
-      // Final pass: post-process full text and apply with junction resolution
       const lines = postProcessGenerate(fullText, width, height);
       const finalChars: { row: number; col: number; char: string }[] = [];
       for (let i = 0; i < lines.length; i++) {
@@ -124,6 +215,20 @@ export function GeneratePrompt() {
     } finally {
       setGenerateLoading(false);
       abortRef.current = null;
+    }
+  };
+
+  // ── Unified submit ──────────────────────────────────────────────────────
+  const handleSubmit = async (overridePrompt?: string, forceStructured?: boolean) => {
+    const finalPrompt = overridePrompt ?? prompt;
+    if (!finalPrompt.trim() || generateLoading) return;
+
+    const useStructured = forceStructured ?? isUIPrompt(finalPrompt);
+
+    if (useStructured) {
+      await handleStructuredSubmit(finalPrompt);
+    } else {
+      await handleAsciiSubmit(finalPrompt);
     }
   };
 
@@ -200,7 +305,7 @@ export function GeneratePrompt() {
             {suggestions.map((s) => (
               <button
                 key={s}
-                onClick={() => { setPrompt(s); handleSubmit(s); }}
+                onClick={() => { setPrompt(s); handleSubmit(s, STRUCTURED_SUGGESTIONS.has(s)); }}
                 className="w-full text-left px-2 py-1 rounded-lg text-xs text-foreground/40 hover:bg-foreground/5 hover:text-foreground transition-colors"
               >
                 {s}

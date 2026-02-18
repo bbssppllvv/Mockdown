@@ -1,0 +1,5 @@
+{
+  "name": "mockdown-canvas",
+  "main": "party/canvas.ts",
+  "compatibilityDate": "2025-01-01"
+}

@@ -3,7 +3,10 @@ import { drawGrid, measureCellSize, RenderConfig, SelectionRect } from '@/lib/gr
 import { useEditorStore } from './use-editor-store';
 import { FONT_FAMILY, FONT_SIZE, DEFAULT_CELL_WIDTH, DEFAULT_CELL_HEIGHT, LIGHT_COLORS, DARK_COLORS } from '@/lib/constants';
 
-export function useCanvasRenderer(containerRef: React.RefObject<HTMLDivElement | null>) {
+export function useCanvasRenderer(
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  bgImageRef?: React.RefObject<{ image: HTMLImageElement; opacity: number } | null>
+) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cellSize, setCellSize] = useState({ width: DEFAULT_CELL_WIDTH, height: DEFAULT_CELL_HEIGHT });
   const cursorVisibleRef = useRef(true);
@@ -104,7 +107,7 @@ export function useCanvasRenderer(containerRef: React.RefObject<HTMLDivElement |
 
     const cursor = { row: store.cursorRow, col: store.cursorCol };
     const hover = store.hoverRow >= 0 ? { row: store.hoverRow, col: store.hoverCol } : null;
-    drawGrid(ctx, grid, config, cursor, store.preview, cursorVisibleRef.current, hover, store.generateSelection, selectionRect, themeColors);
+    drawGrid(ctx, grid, config, cursor, store.preview, cursorVisibleRef.current, hover, store.generateSelection, selectionRect, themeColors, bgImageRef?.current);
   }, []); // stable - reads from refs and getState()
 
   // 1.2: Schedule a single RAF (coalesces multiple state changes into one frame)
@@ -206,5 +209,5 @@ export function useCanvasRenderer(containerRef: React.RefObject<HTMLDivElement |
     scheduleRender();
   }, [cellSize, scheduleRender]);
 
-  return { canvasRef, cellSize, scale };
+  return { canvasRef, cellSize, scale, scheduleRender };
 }
