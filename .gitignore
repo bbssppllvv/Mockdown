@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# experimental (not ready for release)
+/src/app/canvas/
+/src/app/trace/
+/src/components/trace/
+/src/hooks/use-trace-store.ts
