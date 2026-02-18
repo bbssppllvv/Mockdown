@@ -4,6 +4,12 @@ import { useEditorStore } from './use-editor-store';
 export function useKeyboard() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept when user is typing in an input/textarea (e.g. PropertiesPanel)
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) {
+        return;
+      }
+
       const s = useEditorStore.getState();
 
       // When generate prompt is open, don't intercept anything
@@ -147,6 +153,11 @@ export function useKeyboard() {
     };
 
     const handlePaste = (e: ClipboardEvent) => {
+      // Don't intercept paste in inputs/textareas (e.g. PropertiesPanel)
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) {
+        return;
+      }
       if (useEditorStore.getState().generateSelection) return;
       e.preventDefault();
       const text = e.clipboardData?.getData('text/plain');
