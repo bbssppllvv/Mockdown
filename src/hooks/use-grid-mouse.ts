@@ -59,9 +59,11 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
 
     s.setCursor(pos.row, pos.col);
 
-    // ── Select tool ──────────────────────────────────────────────────
+    // ── Select tool (Figma-style) ───────────────────────────────────
     if (s.activeTool === 'select') {
-      // Check corner handles on selected nodes
+      const shiftHeld = e.shiftKey;
+
+      // 1. Check corner resize handles on single-selected node
       if (s.selectedIds.length === 1) {
         const nodeId = s.selectedIds[0];
         const node = s.document.nodes.get(nodeId);
@@ -74,42 +76,63 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
           s.setOriginalBoundsMap(new Map([[nodeId, { ...node.bounds }]]));
           return;
         }
+      }
 
-        // Check if clicking inside selected node → start move
-        if (isInsideNodeBounds(s.document, nodeId, pos.row, pos.col)) {
-          s.pushUndo();
+      // 2. Check if clicking inside an already-selected node → start move
+      const clickedSelectedId = s.selectedIds.find(id =>
+        isInsideNodeBounds(s.document, id, pos.row, pos.col)
+      );
+      if (clickedSelectedId) {
+        s.pushUndo();
+        s.setSelectInteraction('moving');
+        s.setSelectDragStart(pos);
+        const boundsMap = new Map<string, Bounds>();
+        for (const id of s.selectedIds) {
+          const n = s.document.nodes.get(id);
+          if (n) boundsMap.set(id, { ...n.bounds });
+        }
+        s.setOriginalBoundsMap(boundsMap);
+        return;
+      }
+
+      // 3. Hit-test for unselected node under cursor
+      const hitId = hitTestPoint(s.document, pos.row, pos.col, s.drillScope);
+
+      if (hitId) {
+        // Shift+click → toggle in/out of selection
+        if (shiftHeld) {
+          const alreadySelected = s.selectedIds.includes(hitId);
+          const newIds = alreadySelected
+            ? s.selectedIds.filter(id => id !== hitId)
+            : [...s.selectedIds, hitId];
+          s.setSelection(newIds);
+          // Prepare for potential move of the new selection
           s.setSelectInteraction('moving');
           s.setSelectDragStart(pos);
           const boundsMap = new Map<string, Bounds>();
-          for (const id of s.selectedIds) {
+          for (const id of newIds) {
             const n = s.document.nodes.get(id);
             if (n) boundsMap.set(id, { ...n.bounds });
           }
           s.setOriginalBoundsMap(boundsMap);
-          return;
-        }
-      }
-
-      // Multi-selection: check if clicking inside any selected node
-      if (s.selectedIds.length > 1) {
-        for (const id of s.selectedIds) {
-          if (isInsideNodeBounds(s.document, id, pos.row, pos.col)) {
-            s.pushUndo();
-            s.setSelectInteraction('moving');
-            s.setSelectDragStart(pos);
-            const boundsMap = new Map<string, Bounds>();
-            for (const sid of s.selectedIds) {
-              const n = s.document.nodes.get(sid);
-              if (n) boundsMap.set(sid, { ...n.bounds });
-            }
-            s.setOriginalBoundsMap(boundsMap);
-            return;
+        } else {
+          // Click on unselected node → select it, ready for immediate drag-move
+          s.setSelection([hitId]);
+          s.pushUndo();
+          s.setSelectInteraction('moving');
+          s.setSelectDragStart(pos);
+          const node = s.document.nodes.get(hitId);
+          if (node) {
+            s.setOriginalBoundsMap(new Map([[hitId, { ...node.bounds }]]));
           }
         }
+        return;
       }
 
-      // Nothing hit → start marquee selection or click-to-select
-      s.clearSelection();
+      // 4. Empty space → deselect (unless shift) and start marquee
+      if (!shiftHeld) {
+        s.clearSelection();
+      }
       s.setSelectInteraction('selecting');
       s.setSelectDragStart(pos);
       return;
@@ -310,6 +333,13 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
         const dCol = pos.col - s.selectDragStart.col;
         if (dRow !== 0 || dCol !== 0) {
           s.moveNodes(s.selectedIds, dRow, dCol);
+        } else {
+          // No movement happened — this was just a click-to-select, pop the undo
+          const { undoStack } = s;
+          if (undoStack.length > 0) {
+            const newStack = undoStack.slice(0, -1);
+            useSceneStore.setState({ undoStack: newStack });
+          }
         }
         s.setSelectInteraction('idle');
         s.setSelectDragStart(null);

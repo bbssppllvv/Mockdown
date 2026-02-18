@@ -559,12 +559,7 @@ export const useSceneStore = create<SceneState>((set, get) => {
           cursorRow: gridPos?.row ?? get().cursorRow,
           cursorCol: gridPos?.col ?? get().cursorCol,
         });
-        return;
       }
-      // Fallback cursor backspace
-      const { cursorCol: cc, cursorRow: cr } = get();
-      if (cc > 0) set({ cursorCol: cc - 1 });
-      else if (cr > 0) set({ cursorRow: cr - 1, cursorCol: doc.gridCols - 1 });
     },
 
     deleteCharForward: () => {
