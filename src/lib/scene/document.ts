@@ -102,7 +102,11 @@ export function moveNode(doc: SceneDocument, id: NodeId, dRow: number, dCol: num
   if (!node) return doc;
   const next = cloneDocShallow(doc);
 
-  shiftNodeBounds(next, id, dRow, dCol);
+  // Clamp delta so the top-level node stays on canvas
+  const clampedDCol = Math.max(-node.bounds.x, Math.min(doc.gridCols - node.bounds.width - node.bounds.x, dCol));
+  const clampedDRow = Math.max(-node.bounds.y, Math.min(doc.gridRows - node.bounds.height - node.bounds.y, dRow));
+
+  shiftNodeBounds(next, id, clampedDRow, clampedDCol);
   return next;
 }
 
@@ -117,7 +121,7 @@ function shiftNodeBounds(doc: SceneDocument, id: NodeId, dRow: number, dCol: num
   };
   doc.nodes.set(id, { ...node, bounds: newBounds } as SceneNode);
 
-  // Recurse into group children
+  // Recurse into group children (they move with the same clamped delta)
   if (node.type === 'group') {
     for (const childId of (node as GroupNode).childIds) {
       shiftNodeBounds(doc, childId, dRow, dCol);
@@ -128,7 +132,12 @@ function shiftNodeBounds(doc: SceneDocument, id: NodeId, dRow: number, dCol: num
 export function moveNodes(doc: SceneDocument, ids: NodeId[], dRow: number, dCol: number): SceneDocument {
   const next = cloneDocShallow(doc);
   for (const id of ids) {
-    shiftNodeBounds(next, id, dRow, dCol);
+    const node = next.nodes.get(id);
+    if (!node) continue;
+    // Clamp delta so each top-level node stays on canvas
+    const clampedDCol = Math.max(-node.bounds.x, Math.min(doc.gridCols - node.bounds.width - node.bounds.x, dCol));
+    const clampedDRow = Math.max(-node.bounds.y, Math.min(doc.gridRows - node.bounds.height - node.bounds.y, dRow));
+    shiftNodeBounds(next, id, clampedDRow, clampedDCol);
   }
   return next;
 }
@@ -137,7 +146,23 @@ export function resizeNode(doc: SceneDocument, id: NodeId, newBounds: Bounds): S
   const node = doc.nodes.get(id);
   if (!node) return doc;
   const next = cloneDocShallow(doc);
-  next.nodes.set(id, { ...node, bounds: newBounds } as SceneNode);
+  // Clamp to grid bounds and enforce minimum size
+  const clamped: Bounds = {
+    x: Math.max(0, newBounds.x),
+    y: Math.max(0, newBounds.y),
+    width: Math.max(1, newBounds.width),
+    height: Math.max(1, newBounds.height),
+  };
+  if (clamped.x + clamped.width > doc.gridCols) {
+    clamped.width = doc.gridCols - clamped.x;
+  }
+  if (clamped.y + clamped.height > doc.gridRows) {
+    clamped.height = doc.gridRows - clamped.y;
+  }
+  // Re-enforce minimums after clamping
+  if (clamped.width < 1) clamped.width = 1;
+  if (clamped.height < 1) clamped.height = 1;
+  next.nodes.set(id, { ...node, bounds: clamped } as SceneNode);
   return next;
 }
 

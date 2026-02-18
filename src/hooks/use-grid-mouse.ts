@@ -1,7 +1,7 @@
 import { useSceneStore } from './use-scene-store';
 import { getTool } from '@/components/tools/registry';
 import { hitTestPoint, hitTestRegion, hitTestCornerHandle, isInsideNodeBounds } from '@/lib/scene/hit-test';
-import { SparseCell, Bounds } from '@/lib/scene/types';
+import { SparseCell, Bounds, GroupNode } from '@/lib/scene/types';
 import { detectTextRegion, getPrimaryTextKey, getNodeText } from '@/lib/scene/text-editing';
 
 // Module-level tracking for continuous drawing tools
@@ -173,14 +173,7 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
         const dCol = pos.col - s.selectDragStart.col;
         // Build move preview from original bounds
         const preview: { row: number; col: number; char: string }[] = [];
-        for (const [id, origBounds] of s.originalBoundsMap) {
-          const nb = {
-            x: origBounds.x + dCol,
-            y: origBounds.y + dRow,
-            width: origBounds.width,
-            height: origBounds.height,
-          };
-          // Show bounds outline as preview
+        const addOutline = (nb: Bounds) => {
           for (let c = nb.x; c < nb.x + nb.width; c++) {
             preview.push({ row: nb.y, col: c, char: ' ' });
             preview.push({ row: nb.y + nb.height - 1, col: c, char: ' ' });
@@ -188,6 +181,30 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
           for (let r = nb.y + 1; r < nb.y + nb.height - 1; r++) {
             preview.push({ row: r, col: nb.x, char: ' ' });
             preview.push({ row: r, col: nb.x + nb.width - 1, char: ' ' });
+          }
+        };
+        for (const [id, origBounds] of s.originalBoundsMap) {
+          const nb = {
+            x: origBounds.x + dCol,
+            y: origBounds.y + dRow,
+            width: origBounds.width,
+            height: origBounds.height,
+          };
+          addOutline(nb);
+          // Also show outlines for group children
+          const node = s.document.nodes.get(id);
+          if (node && node.type === 'group') {
+            for (const childId of (node as GroupNode).childIds) {
+              const child = s.document.nodes.get(childId);
+              if (child) {
+                addOutline({
+                  x: child.bounds.x + dCol,
+                  y: child.bounds.y + dRow,
+                  width: child.bounds.width,
+                  height: child.bounds.height,
+                });
+              }
+            }
           }
         }
         s.setPreview(preview.length > 0 ? preview : null);

@@ -194,7 +194,7 @@ export function detectTextRegion(
     case 'modal':
       return { key: 'title', cursorPos: relRow === 1 ? clamp(relCol - 2, 0, node.title.length) : node.title.length };
     case 'placeholder':
-      return { key: 'label', cursorPos: node.label.length };
+      return { key: 'label', cursorPos: clamp(relCol, 0, node.label.length) };
     case 'text': {
       const lines = node.content.split('\n');
       const lineIdx = clamp(relRow, 0, lines.length - 1);
@@ -218,7 +218,11 @@ export function detectTextRegion(
         }
         offset += tabStr.length + gap;
       }
-      return { key: `tab-${node.activeIndex}`, cursorPos: node.tabs[node.activeIndex]?.length ?? 0 };
+      {
+        const idx = Math.max(0, Math.min(node.activeIndex, node.tabs.length - 1));
+        if (node.tabs.length === 0) return null;
+        return { key: `tab-${idx}`, cursorPos: node.tabs[idx]?.length ?? 0 };
+      }
     }
     case 'nav': {
       if (relRow !== 0) return { key: 'logo', cursorPos: node.logo.length };
@@ -324,7 +328,10 @@ export function getTextCursorGridPos(
       const lm = key.match(/^link-(\d+)$/);
       if (lm) {
         let offset = node.logo.length + 3;
-        for (let i = 0; i < +lm[1]; i++) offset += node.links[i].length + 3;
+        for (let i = 0; i < +lm[1]; i++) {
+          if (i >= node.links.length || !node.links[i]) break;
+          offset += node.links[i].length + 3;
+        }
         return { row: y, col: x + offset + cursorPos };
       }
       return null;
@@ -333,7 +340,10 @@ export function getTextCursorGridPos(
       const m = key.match(/^item-(\d+)$/);
       if (!m) return null;
       let offset = 0;
-      for (let i = 0; i < +m[1]; i++) offset += node.items[i].length + 3;
+      for (let i = 0; i < +m[1]; i++) {
+        if (i >= node.items.length || !node.items[i]) break;
+        offset += node.items[i].length + 3;
+      }
       return { row: y, col: x + offset + cursorPos };
     }
     case 'table': {
@@ -360,6 +370,7 @@ export function moveTextCursor(
 ): number {
   const text = getNodeText(node, key);
   if (text === null) return cursorPos;
+  cursorPos = Math.max(0, Math.min(text.length, cursorPos));
 
   if (direction === 'left') return Math.max(0, cursorPos - 1);
   if (direction === 'right') return Math.min(text.length, cursorPos + 1);

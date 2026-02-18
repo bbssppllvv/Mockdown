@@ -77,6 +77,11 @@ export function useKeyboard() {
           s.deleteChar();
           return;
         }
+        if (e.key === 'Delete') {
+          e.preventDefault();
+          s.deleteCharForward();
+          return;
+        }
         // Arrow keys move cursor within text
         if (e.key === 'ArrowLeft') { e.preventDefault(); s.moveEditingCursor('left'); return; }
         if (e.key === 'ArrowRight') { e.preventDefault(); s.moveEditingCursor('right'); return; }
@@ -108,25 +113,30 @@ export function useKeyboard() {
       // ── Consolidated Escape: single priority chain ──────────────────
       if (e.key === 'Escape') {
         e.preventDefault();
-        // 1. Cancel active drawing
+        // 1. Stop text editing (if still active without the earlier block catching it)
+        if (s.textInputActive) {
+          s.stopEditing();
+          return;
+        }
+        // 2. Cancel active drawing
         if (s.isDrawing) {
           s.setIsDrawing(false);
           s.setDrawStart(null);
           s.setPreview(null);
           return;
         }
-        // 2. Clear selection (and exit drill scope if inside one)
+        // 3. Clear selection (and exit drill scope if inside one)
         if (s.selectedIds.length > 0) {
           s.clearSelection();
           if (s.drillScope) s.setDrillScope(null);
           return;
         }
-        // 3. Exit drill scope
+        // 4. Exit drill scope
         if (s.drillScope) {
           s.setDrillScope(null);
           return;
         }
-        // 4. Reset tool to select
+        // 5. Reset tool to select
         if (s.activeTool !== 'select') {
           s.setActiveTool('select');
           return;

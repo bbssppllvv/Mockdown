@@ -127,6 +127,7 @@ interface SceneState {
   // Text editing
   typeChar(char: string): void;
   deleteChar(): void;
+  deleteCharForward(): void;
   moveCursor(dr: number, dc: number): void;
   newLine(): void;
   pasteText(text: string): void;
@@ -134,6 +135,9 @@ interface SceneState {
   // Grid
   resizeGrid(rows: number, cols: number): void;
   clearCanvas(): void;
+
+  // Structured generation
+  applyNodes(nodes: NewNodeData[], offset: { row: number; col: number }, replaceArea?: { minRow: number; maxRow: number; minCol: number; maxCol: number }): void;
 
   // Direct grid write for generate progressive rendering
   setCharsRaw(chars: { row: number; col: number; char: string }[]): void;
@@ -239,6 +243,7 @@ export const useSceneStore = create<SceneState>((set, get) => {
       editingTextKey: null,
       editingCursorPos: 0,
       textInputActive: false,
+      drillScope: null,
     }),
 
     setDrillScope: (id) => set({ drillScope: id, selectedIds: [] }),
@@ -319,6 +324,12 @@ export const useSceneStore = create<SceneState>((set, get) => {
         redoStack: [...redoStack, cloneDocument(doc)],
         selectedIds: [],
         selectInteraction: 'idle',
+        editingNodeId: null,
+        editingTextKey: null,
+        editingCursorPos: 0,
+        textInputActive: false,
+        preview: null,
+        drillScope: null,
       });
     },
 
@@ -334,6 +345,12 @@ export const useSceneStore = create<SceneState>((set, get) => {
         undoStack: [...undoStack, cloneDocument(doc)],
         selectedIds: [],
         selectInteraction: 'idle',
+        editingNodeId: null,
+        editingTextKey: null,
+        editingCursorPos: 0,
+        textInputActive: false,
+        preview: null,
+        drillScope: null,
       });
     },
 
@@ -503,6 +520,31 @@ export const useSceneStore = create<SceneState>((set, get) => {
       else if (cr > 0) set({ cursorRow: cr - 1, cursorCol: doc.gridCols - 1 });
     },
 
+    deleteCharForward: () => {
+      const { editingNodeId, editingTextKey, editingCursorPos, document: doc } = get();
+      if (!editingNodeId || !editingTextKey) return;
+      const node = doc.nodes.get(editingNodeId);
+      if (!node) return;
+      const currentText = getNodeText(node, editingTextKey);
+      if (currentText === null || editingCursorPos >= currentText.length) return;
+
+      const newText = currentText.slice(0, editingCursorPos) + currentText.slice(editingCursorPos + 1);
+      const result = setNodeText(node, editingTextKey, newText);
+      if (!result) return;
+
+      const newDoc = updateNodeDoc(doc, editingNodeId, { ...result.patch, bounds: result.bounds } as any);
+      const grid = makeRenderedGrid(newDoc);
+      const updatedNode = newDoc.nodes.get(editingNodeId);
+      const gridPos = updatedNode ? getTextCursorGridPos(updatedNode, editingTextKey, editingCursorPos) : null;
+
+      set({
+        document: newDoc,
+        renderedGrid: grid,
+        cursorRow: gridPos?.row ?? get().cursorRow,
+        cursorCol: gridPos?.col ?? get().cursorCol,
+      });
+    },
+
     moveCursor: (dr, dc) => {
       const { cursorRow, cursorCol, document: doc } = get();
       set({
@@ -585,7 +627,83 @@ export const useSceneStore = create<SceneState>((set, get) => {
         renderedGrid: makeRenderedGrid(newDoc),
         selectedIds: [],
         selectInteraction: 'idle',
+        editingNodeId: null,
+        editingTextKey: null,
+        editingCursorPos: 0,
+        textInputActive: false,
+        preview: null,
+        drillScope: null,
       });
+    },
+
+    // ─── Structured generation ──────────────────────────────────────────────
+
+    applyNodes: (nodes, offset, replaceArea) => {
+      let doc = get().document;
+
+      // Remove old nodes fully contained within replaceArea
+      if (replaceArea) {
+        const overlapIds: NodeId[] = [];
+        for (const [id, node] of doc.nodes) {
+          if (node.type === 'group') continue;
+          const b = node.bounds;
+          if (
+            b.y >= replaceArea.minRow && b.x >= replaceArea.minCol &&
+            b.y + b.height - 1 <= replaceArea.maxRow && b.x + b.width - 1 <= replaceArea.maxCol
+          ) {
+            overlapIds.push(id);
+          }
+        }
+        if (overlapIds.length > 0) {
+          doc = removeNodesDoc(doc, overlapIds);
+        }
+      }
+
+      // Add each node with offset
+      const createdIds: NodeId[] = [];
+      for (const nodeData of nodes) {
+        const id = generateId();
+        const offsetBounds: Bounds = {
+          x: nodeData.bounds.x + offset.col,
+          y: nodeData.bounds.y + offset.row,
+          width: nodeData.bounds.width,
+          height: nodeData.bounds.height,
+        };
+        const node = {
+          ...nodeData,
+          id,
+          bounds: offsetBounds,
+          visible: true,
+          locked: false,
+          parentId: null,
+        } as SceneNode;
+        doc = addNode(doc, node);
+        createdIds.push(id);
+      }
+
+      // Group all created nodes if more than one
+      if (createdIds.length > 1) {
+        doc = groupNodesDoc(doc, createdIds);
+        // Find the new group ID
+        const idSet = new Set(createdIds);
+        const groupId = [...doc.nodes.keys()].find(id => {
+          const n = doc.nodes.get(id);
+          return n?.type === 'group' && (n as any).childIds?.some((c: string) => idSet.has(c));
+        });
+        set({
+          document: doc,
+          renderedGrid: makeRenderedGrid(doc),
+          selectedIds: groupId ? [groupId] : createdIds,
+        });
+      } else if (createdIds.length === 1) {
+        set({
+          document: doc,
+          renderedGrid: makeRenderedGrid(doc),
+          selectedIds: createdIds,
+        });
+      } else {
+        set({ document: doc, renderedGrid: makeRenderedGrid(doc) });
+      }
     },
 
     // ─── Direct grid manipulation (for generate tool progressive rendering) ─
