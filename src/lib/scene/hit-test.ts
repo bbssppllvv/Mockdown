@@ -9,6 +9,18 @@ function boundsIntersects(a: Bounds, minRow: number, maxRow: number, minCol: num
   return a.x < maxCol + 1 && a.x + a.width > minCol && a.y < maxRow + 1 && a.y + a.height > minRow;
 }
 
+function isVisibleInHierarchy(doc: SceneDocument, node: SceneNode): boolean {
+  if (!node.visible) return false;
+  let parentId = node.parentId;
+  while (parentId) {
+    const parent = doc.nodes.get(parentId);
+    if (!parent) break;
+    if (!parent.visible) return false;
+    parentId = parent.parentId;
+  }
+  return true;
+}
+
 /**
  * Hit-test a single point against the scene.
  * Returns the topmost (highest z-order) node whose bounds contain the point.
@@ -38,7 +50,7 @@ export function hitTestPoint(
   // Walk top→bottom (reverse of z-order)
   for (let i = candidates.length - 1; i >= 0; i--) {
     const node = candidates[i];
-    if (!node.visible || node.locked) continue;
+    if (!isVisibleInHierarchy(doc, node) || node.locked) continue;
 
     if (node.type === 'stroke') {
       // For strokes, check bounds first, then individual cells
@@ -127,7 +139,7 @@ export function hitTestRegion(
   }
 
   for (const node of candidates) {
-    if (!node.visible || node.locked) continue;
+    if (!isVisibleInHierarchy(doc, node) || node.locked) continue;
     if (node.type === 'group') continue;
     if (boundsIntersects(node.bounds, minRow, maxRow, minCol, maxCol)) {
       result.push(node.id);

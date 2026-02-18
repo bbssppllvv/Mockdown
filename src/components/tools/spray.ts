@@ -1,16 +1,18 @@
 import { DrawingTool, GridPos, PreviewCell } from './types';
 import { CharGrid } from '@/lib/grid-model';
 import { SparseCell } from '@/lib/scene/types';
+import { useSceneStore } from '@/hooks/use-scene-store';
 
 const SPRAY_CHARS = ['\u2591', '\u2592', '\u2593', '\u00B7', '\u2219'];
-const SPRAY_RADIUS = 3;
-const SPRAY_DENSITY = 5;
 
 function sprayAt(row: number, col: number, grid: CharGrid): PreviewCell[] {
+  const spraySettings = useSceneStore.getState().toolSettings.spray;
+  const radius = Math.max(1, Math.min(12, spraySettings.radius));
+  const density = Math.max(1, Math.min(30, spraySettings.density));
   const cells: PreviewCell[] = [];
-  for (let i = 0; i < SPRAY_DENSITY; i++) {
+  for (let i = 0; i < density; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const dist = Math.random() * SPRAY_RADIUS;
+    const dist = Math.random() * radius;
     const dr = Math.round(Math.sin(angle) * dist);
     const dc = Math.round(Math.cos(angle) * dist);
     const r = row + dr;

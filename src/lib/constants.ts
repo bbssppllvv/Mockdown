@@ -1,8 +1,32 @@
-// 3.5: Detect mobile viewport at import time for default grid size
-const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768;
+// Fallback grid size when window is unavailable (SSR)
+export const GRID_COLS = 80;
+export const GRID_ROWS = 40;
 
-export const GRID_COLS = IS_MOBILE ? 60 : 80;
-export const GRID_ROWS = IS_MOBILE ? 40 : 40;
+/**
+ * Compute optimal grid dimensions to fill the available viewport.
+ * Desktop: subtracts left toolbar (192px), right inspector (280px) and status bar (~30px).
+ * Mobile: subtracts bottom toolbar (88px) + safe area (~34px).
+ * Returns cols/rows clamped to [20..300] x [10..200].
+ */
+export function computeAutoGridSize(
+  cellWidth = DEFAULT_CELL_WIDTH,
+  cellHeight = DEFAULT_CELL_HEIGHT,
+): { cols: number; rows: number } {
+  if (typeof window === 'undefined') return { cols: GRID_COLS, rows: GRID_ROWS };
+
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const isMobile = vw < 768;
+
+  const availableWidth = isMobile ? vw - 16 : vw - 472;
+  // Status bar ~30px on desktop; bottom toolbar 88px + safe area ~34px on mobile
+  const availableHeight = isMobile ? vh - 122 : vh - 30;
+
+  const cols = Math.max(20, Math.min(300, Math.floor(availableWidth / cellWidth)));
+  const rows = Math.max(10, Math.min(200, Math.floor(availableHeight / cellHeight)));
+
+  return { cols, rows };
+}
 
 export const FONT_FAMILY = 'JetBrains Mono, monospace';
 export const FONT_SIZE = 14;

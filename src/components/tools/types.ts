@@ -20,6 +20,7 @@ export interface DrawResult {
 // New: what tools return in the scene-graph world
 export type ToolResult =
   | { kind: 'create'; node: NewNodeData }
+  | { kind: 'createMany'; nodes: NewNodeData[]; groupName?: string }
   | { kind: 'delete'; nodeIds: NodeId[] }
   | null;
 

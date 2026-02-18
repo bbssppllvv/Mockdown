@@ -7,23 +7,17 @@ function buildTextPreview(start: GridPos, end: GridPos): PreviewCell[] {
   const minC = Math.min(start.col, end.col);
   const maxC = Math.max(start.col, end.col);
 
-  const width = maxC - minC + 1;
-  if (width < 4) return [];
-
   const cells: PreviewCell[] = [];
 
-  // Fill the area with spaces
+  // Fill the area with spaces to show the text region
   for (let r = minR; r <= maxR; r++) {
     for (let c = minC; c <= maxC; c++) {
       cells.push({ row: r, col: c, char: ' ' });
     }
   }
 
-  // Write "Text" left-aligned on first row
-  const label = 'Text';
-  for (let i = 0; i < label.length && minC + i <= maxC; i++) {
-    cells.push({ row: minR, col: minC + i, char: label[i] });
-  }
+  // Show cursor placeholder on first cell
+  cells.push({ row: minR, col: minC, char: '|' });
 
   return cells;
 }
@@ -40,8 +34,8 @@ export const textTool: DrawingTool = {
       node: {
         type: 'text',
         name: 'Text',
-        bounds: { x: pos.col, y: pos.row, width: 10, height: 1 },
-        content: 'Text',
+        bounds: { x: pos.col, y: pos.row, width: 1, height: 1 },
+        content: '',
       },
     };
   },
@@ -64,7 +58,6 @@ export const textTool: DrawingTool = {
     const maxC = Math.max(start.col, end.col);
 
     const width = maxC - minC + 1;
-    if (width < 4) return null;
 
     return {
       kind: 'create',
@@ -72,20 +65,19 @@ export const textTool: DrawingTool = {
         type: 'text',
         name: 'Text',
         bounds: { x: minC, y: minR, width, height: maxR - minR + 1 },
-        content: 'Text',
+        content: '',
       },
     };
   },
 
   onTextInput(pos: GridPos, text: string): ToolResult {
-    const content = text || 'Text';
     return {
       kind: 'create',
       node: {
         type: 'text',
         name: 'Text',
-        bounds: { x: pos.col, y: pos.row, width: Math.max(content.length, 4), height: 1 },
-        content,
+        bounds: { x: pos.col, y: pos.row, width: Math.max(text.length, 1), height: 1 },
+        content: text,
       },
     };
   },

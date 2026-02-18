@@ -152,9 +152,9 @@ export function useCanvasRenderer(
       const cs = cellSizeRef.current;
       const gridPixelWidth = s.document.gridCols * cs.width;
       const gridPixelHeight = s.document.gridRows * cs.height;
-      // Account for sidebar (192px on md+, 0 on mobile since it's an overlay)
+      // Account for desktop chrome: toolbar (192px) + inspector (280px)
       const isMobile = window.innerWidth < 768;
-      const availableWidth = isMobile ? window.innerWidth - 16 : window.innerWidth - 192;
+      const availableWidth = isMobile ? window.innerWidth - 16 : window.innerWidth - 472;
       // On mobile, subtract bottom toolbar (88px two rows) + safe area estimate (~34px)
       const availableHeight = isMobile
         ? window.innerHeight - 122

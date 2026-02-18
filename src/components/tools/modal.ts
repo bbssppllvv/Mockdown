@@ -1,7 +1,18 @@
 import { DrawingTool, GridPos, PreviewCell, ToolResult } from './types';
 import { BOX } from '@/lib/box-chars';
+import { NewNodeData } from '@/lib/scene/types';
+import { useSceneStore } from '@/hooks/use-scene-store';
 
-function buildModalPreview(start: GridPos, end: GridPos): PreviewCell[] {
+function getDefaultModalConfig() {
+  const settings = useSceneStore.getState().toolSettings.modal;
+  return {
+    width: Math.max(12, Math.min(120, settings.defaultWidth)),
+    height: Math.max(6, Math.min(80, settings.defaultHeight)),
+    title: settings.defaultTitle || 'Dialog',
+  };
+}
+
+function buildModalPreview(start: GridPos, end: GridPos, title: string): PreviewCell[] {
   const minR = Math.min(start.row, end.row);
   const maxR = Math.max(start.row, end.row);
   const minC = Math.min(start.col, end.col);
@@ -12,7 +23,6 @@ function buildModalPreview(start: GridPos, end: GridPos): PreviewCell[] {
 
   const cells: PreviewCell[] = [];
 
-  // Box border
   for (let r = minR; r <= maxR; r++) {
     const isTop = r === minR;
     const isBot = r === maxR;
@@ -34,31 +44,27 @@ function buildModalPreview(start: GridPos, end: GridPos): PreviewCell[] {
     }
   }
 
-  // Title row
-  const title = 'Dialog';
-  for (let i = 0; i < title.length && minC + 2 + i < maxC; i++) {
+  for (let i = 0; i < title.length && minC + 2 + i < maxC - 2; i++) {
     const idx = cells.findIndex(c => c.row === minR + 1 && c.col === minC + 2 + i);
     if (idx !== -1) cells[idx].char = title[i];
   }
-  // Close X
+
   if (w >= 5) {
     const idx = cells.findIndex(c => c.row === minR + 1 && c.col === maxC - 2);
     if (idx !== -1) cells[idx].char = '×';
   }
 
-  // Title divider
   if (minR + 2 < maxR) {
-    const divIdx = cells.findIndex(c => c.row === minR + 2 && c.col === minC);
-    if (divIdx !== -1) cells[divIdx].char = BOX.T_RIGHT;
-    const divIdx2 = cells.findIndex(c => c.row === minR + 2 && c.col === maxC);
-    if (divIdx2 !== -1) cells[divIdx2].char = BOX.T_LEFT;
+    const leftIdx = cells.findIndex(c => c.row === minR + 2 && c.col === minC);
+    if (leftIdx !== -1) cells[leftIdx].char = BOX.T_RIGHT;
+    const rightIdx = cells.findIndex(c => c.row === minR + 2 && c.col === maxC);
+    if (rightIdx !== -1) cells[rightIdx].char = BOX.T_LEFT;
     for (let c = minC + 1; c < maxC; c++) {
       const idx = cells.findIndex(cell => cell.row === minR + 2 && cell.col === c);
       if (idx !== -1) cells[idx].char = BOX.H;
     }
   }
 
-  // Action buttons on last interior row
   const btnRow = maxR - 1;
   if (btnRow > minR + 2) {
     const btns = '[ Cancel ] [ OK ]';
@@ -74,30 +80,111 @@ function buildModalPreview(start: GridPos, end: GridPos): PreviewCell[] {
   return cells;
 }
 
+function buildModalNodes(x: number, y: number, width: number, height: number, title: string): NewNodeData[] {
+  const maxC = x + width - 1;
+  const maxR = y + height - 1;
+  const titleX = x + 2;
+  const titleRow = y + 1;
+  const dividerRow = y + 2;
+  const actionRow = maxR - 1;
+
+  const nodes: NewNodeData[] = [
+    {
+      type: 'box',
+      name: 'Dialog Frame',
+      bounds: { x, y, width, height },
+    },
+  ];
+
+  if (titleRow <= maxR - 1) {
+    const titleMaxWidth = Math.max(1, maxC - titleX - 2);
+    nodes.push({
+      type: 'text',
+      name: 'Dialog Title',
+      bounds: { x: titleX, y: titleRow, width: Math.min(title.length, titleMaxWidth), height: 1 },
+      content: title,
+    });
+    nodes.push({
+      type: 'text',
+      name: 'Dialog Close',
+      bounds: { x: maxC - 2, y: titleRow, width: 1, height: 1 },
+      content: '×',
+    });
+  }
+
+  if (dividerRow < maxR) {
+    nodes.push({
+      type: 'line',
+      name: 'Dialog Divider',
+      bounds: { x, y: dividerRow, width, height: 1 },
+      points: [
+        { row: dividerRow, col: x },
+        { row: dividerRow, col: maxC },
+      ],
+    });
+  }
+
+  if (actionRow > dividerRow) {
+    const okLabel = 'OK';
+    const cancelLabel = 'Cancel';
+    const okWidth = okLabel.length + 4;
+    const cancelWidth = cancelLabel.length + 4;
+    const okX = maxC - 1 - okWidth;
+    const cancelX = okX - 1 - cancelWidth;
+
+    if (cancelX > x) {
+      nodes.push({
+        type: 'button',
+        name: 'Dialog Cancel',
+        bounds: { x: cancelX, y: actionRow, width: cancelWidth, height: 1 },
+        label: cancelLabel,
+      });
+    }
+
+    if (okX > x) {
+      nodes.push({
+        type: 'button',
+        name: 'Dialog OK',
+        bounds: { x: okX, y: actionRow, width: okWidth, height: 1 },
+        label: okLabel,
+      });
+    }
+  }
+
+  return nodes;
+}
+
+function createModalResult(minR: number, minC: number, width: number, height: number): ToolResult {
+  if (height < 4 || width < 10) return null;
+  const { title } = getDefaultModalConfig();
+  const nodes = buildModalNodes(minC, minR, width, height, title);
+  return { kind: 'createMany', nodes, groupName: 'Modal' };
+}
+
 export const modalTool: DrawingTool = {
   id: 'modal',
   label: 'Modal',
   icon: 'AppWindow',
 
   onClick(pos: GridPos): ToolResult {
-    return {
-      kind: 'create',
-      node: {
-        type: 'modal',
-        name: 'Modal',
-        bounds: { x: pos.col, y: pos.row, width: 30, height: 10 },
-        title: 'Dialog',
-      },
-    };
+    const defaults = getDefaultModalConfig();
+    return createModalResult(pos.row, pos.col, defaults.width, defaults.height);
   },
 
-  onDragStart(_pos: GridPos) { return []; },
+  onDragStart() {
+    return [];
+  },
 
   onDrag(start: GridPos, current: GridPos): PreviewCell[] | null {
+    const defaults = getDefaultModalConfig();
     if (start.row === current.row && start.col === current.col) {
-      return buildModalPreview(start, { row: start.row + 9, col: start.col + 29 });
+      return buildModalPreview(
+        start,
+        { row: start.row + defaults.height - 1, col: start.col + defaults.width - 1 },
+        defaults.title
+      );
     }
-    return buildModalPreview(start, current);
+    return buildModalPreview(start, current, defaults.title);
   },
 
   onDragEnd(start: GridPos, end: GridPos): ToolResult {
@@ -105,16 +192,6 @@ export const modalTool: DrawingTool = {
     const maxR = Math.max(start.row, end.row);
     const minC = Math.min(start.col, end.col);
     const maxC = Math.max(start.col, end.col);
-    if (maxR - minR < 3 || maxC - minC < 9) return null;
-
-    return {
-      kind: 'create',
-      node: {
-        type: 'modal',
-        name: 'Modal',
-        bounds: { x: minC, y: minR, width: maxC - minC + 1, height: maxR - minR + 1 },
-        title: 'Dialog',
-      },
-    };
+    return createModalResult(minR, minC, maxC - minC + 1, maxR - minR + 1);
   },
 };

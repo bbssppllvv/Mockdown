@@ -1,7 +1,7 @@
 import { useSceneStore } from './use-scene-store';
 import { getTool } from '@/components/tools/registry';
 import { hitTestPoint, hitTestRegion, hitTestCornerHandle, isInsideNodeBounds } from '@/lib/scene/hit-test';
-import { SparseCell, Bounds, GroupNode } from '@/lib/scene/types';
+import { SparseCell, Bounds, GroupNode, SceneNode } from '@/lib/scene/types';
 import { detectTextRegion, getPrimaryTextKey, getNodeText } from '@/lib/scene/text-editing';
 
 // Module-level tracking for continuous drawing tools
@@ -20,14 +20,25 @@ export function pixelToGrid(
   return { row, col };
 }
 
-// 3.3: getPos accounts for CSS scale transform
-function getPos(e: React.PointerEvent<HTMLDivElement>, cellWidth: number, cellHeight: number, scale: number) {
-  const rect = e.currentTarget.getBoundingClientRect();
+function getPosFromClient(
+  currentTarget: HTMLDivElement,
+  clientX: number,
+  clientY: number,
+  cellWidth: number,
+  cellHeight: number,
+  scale: number
+) {
+  const rect = currentTarget.getBoundingClientRect();
   const s = useSceneStore.getState();
   return pixelToGrid(
-    (e.clientX - rect.left) / scale, (e.clientY - rect.top) / scale,
+    (clientX - rect.left) / scale, (clientY - rect.top) / scale,
     cellWidth, cellHeight, s.document.gridRows, s.document.gridCols
   );
+}
+
+// 3.3: getPos accounts for CSS scale transform
+function getPos(e: React.PointerEvent<HTMLDivElement>, cellWidth: number, cellHeight: number, scale: number) {
+  return getPosFromClient(e.currentTarget, e.clientX, e.clientY, cellWidth, cellHeight, scale);
 }
 
 export function useGridMouse(cellWidth: number, cellHeight: number, scale: number = 1) {
@@ -50,32 +61,13 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
 
     // ── Select tool ──────────────────────────────────────────────────
     if (s.activeTool === 'select') {
-      // Double-click: enter edit mode or drill into group
-      if (e.detail >= 2 && s.selectedIds.length === 1) {
-        const nodeId = s.selectedIds[0];
-        const node = s.document.nodes.get(nodeId);
-        if (node && isInsideNodeBounds(s.document, nodeId, pos.row, pos.col)) {
-          if (node.type === 'group') {
-            s.setDrillScope(nodeId);
-            return;
-          }
-          // Detect which text region was clicked
-          const region = detectTextRegion(node, pos.row, pos.col);
-          if (region) {
-            s.pushUndo();
-            s.startEditing(nodeId, region.key, region.cursorPos);
-            return;
-          }
-        }
-      }
-
       // Check corner handles on selected nodes
       if (s.selectedIds.length === 1) {
         const nodeId = s.selectedIds[0];
+        const node = s.document.nodes.get(nodeId);
         const corner = hitTestCornerHandle(s.document, nodeId, pos.row, pos.col);
-        if (corner) {
+        if (corner && node) {
           s.pushUndo();
-          const node = s.document.nodes.get(nodeId)!;
           s.setSelectInteraction('resizing');
           s.setSelectDragStart(pos);
           s.setResizeCorner(corner);
@@ -426,34 +418,56 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
       if (dist < 2 && tool.onClick) {
         s.pushUndo();
         const result = tool.onClick(pos, s.renderedGrid);
-        if (result && result.kind === 'create') {
-          const newId = s.addNode(result.node);
-          s.setSelection([newId]);
-          if (tool.needsTextInput) {
-            const key = getPrimaryTextKey(result.node.type);
-            if (key) {
-              const text = getNodeText(result.node as any, key);
-              s.startEditing(newId, key, text?.length ?? 0);
+        if (result) {
+          if (result.kind === 'create') {
+            const newId = s.addNode(result.node);
+            s.setSelection([newId]);
+            if (tool.needsTextInput) {
+              const key = getPrimaryTextKey(result.node.type);
+              if (key) {
+                const draftNode = {
+                  ...result.node,
+                  id: 'draft-node',
+                  visible: true,
+                  locked: false,
+                  parentId: null,
+                } as SceneNode;
+                const text = getNodeText(draftNode, key);
+                s.startEditing(newId, key, text?.length ?? 0);
+              }
             }
+            // Keep tool active — user can keep placing (Figma-style)
+          } else if (result.kind === 'createMany') {
+            s.applyNodes(result.nodes, { row: 0, col: 0 }, undefined, result.groupName);
           }
-          // Keep tool active — user can keep placing (Figma-style)
         }
       } else if (tool.onDragEnd) {
         s.pushUndo();
         const result = tool.onDragEnd(s.drawStart, pos, s.renderedGrid);
-        if (result && result.kind === 'create') {
-          const newId = s.addNode(result.node);
-          s.setSelection([newId]);
-          if (tool.needsTextInput) {
-            const key = getPrimaryTextKey(result.node.type);
-            if (key) {
-              const text = getNodeText(result.node as any, key);
-              s.startEditing(newId, key, text?.length ?? 0);
+        if (result) {
+          if (result.kind === 'create') {
+            const newId = s.addNode(result.node);
+            s.setSelection([newId]);
+            if (tool.needsTextInput) {
+              const key = getPrimaryTextKey(result.node.type);
+              if (key) {
+                const draftNode = {
+                  ...result.node,
+                  id: 'draft-node',
+                  visible: true,
+                  locked: false,
+                  parentId: null,
+                } as SceneNode;
+                const text = getNodeText(draftNode, key);
+                s.startEditing(newId, key, text?.length ?? 0);
+              }
             }
+            // Keep tool active — user can keep placing (Figma-style)
+          } else if (result.kind === 'createMany') {
+            s.applyNodes(result.nodes, { row: 0, col: 0 }, undefined, result.groupName);
+          } else if (result.kind === 'delete') {
+            s.removeNodes(result.nodeIds);
           }
-          // Keep tool active — user can keep placing (Figma-style)
-        } else if (result && result.kind === 'delete') {
-          s.removeNodes(result.nodeIds);
         }
       }
 
@@ -471,7 +485,32 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
     handlePointerUp(e);
   };
 
-  return { handlePointerDown, handlePointerMove, handlePointerUp, handlePointerLeave };
+  const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const s = useSceneStore.getState();
+    if (s.activeTool !== 'select') return;
+
+    const pos = getPosFromClient(e.currentTarget, e.clientX, e.clientY, cellWidth, cellHeight, scale);
+    const hitId = hitTestPoint(s.document, pos.row, pos.col, s.drillScope);
+    if (!hitId) return;
+
+    const node = s.document.nodes.get(hitId);
+    if (!node) return;
+
+    s.setSelection([hitId]);
+
+    if (node.type === 'group') {
+      s.setDrillScope(hitId);
+      return;
+    }
+
+    const region = detectTextRegion(node, pos.row, pos.col);
+    if (region) {
+      s.pushUndo();
+      s.startEditing(hitId, region.key, region.cursorPos);
+    }
+  };
+
+  return { handlePointerDown, handlePointerMove, handlePointerUp, handlePointerLeave, handleDoubleClick };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

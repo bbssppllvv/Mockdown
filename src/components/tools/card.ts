@@ -1,6 +1,8 @@
 import { DrawingTool, GridPos, PreviewCell, ToolResult } from './types';
-import { CharGrid } from '@/lib/grid-model';
 import { BOX } from '@/lib/box-chars';
+import { NewNodeData } from '@/lib/scene/types';
+
+const DEFAULT_CARD_TITLE = 'Title';
 
 function buildCardPreview(start: GridPos, end: GridPos): PreviewCell[] {
   const minR = Math.min(start.row, end.row);
@@ -39,16 +41,53 @@ function buildCardPreview(start: GridPos, end: GridPos): PreviewCell[] {
     }
   }
 
-  const title = 'Title';
   const titleR = minR + 1;
   const titleStart = minC + 2;
-  for (let i = 0; i < title.length && titleStart + i < maxC; i++) {
+  for (let i = 0; i < DEFAULT_CARD_TITLE.length && titleStart + i < maxC; i++) {
     const idx = cells.findIndex(cell => cell.row === titleR && cell.col === titleStart + i);
-    if (idx !== -1) cells[idx].char = title[i];
-    else cells.push({ row: titleR, col: titleStart + i, char: title[i] });
+    if (idx !== -1) cells[idx].char = DEFAULT_CARD_TITLE[i];
   }
 
   return cells;
+}
+
+function buildCardNodes(x: number, y: number, width: number, height: number, title: string): NewNodeData[] {
+  const maxC = x + width - 1;
+  const dividerRow = y + 2;
+
+  const nodes: NewNodeData[] = [
+    {
+      type: 'box',
+      name: 'Card Frame',
+      bounds: { x, y, width, height },
+    },
+    {
+      type: 'text',
+      name: 'Card Title',
+      bounds: { x: x + 2, y: y + 1, width: Math.max(1, Math.min(title.length, Math.max(1, width - 5))), height: 1 },
+      content: title,
+    },
+  ];
+
+  if (dividerRow < y + height - 1) {
+    nodes.push({
+      type: 'line',
+      name: 'Card Divider',
+      bounds: { x, y: dividerRow, width, height: 1 },
+      points: [
+        { row: dividerRow, col: x },
+        { row: dividerRow, col: maxC },
+      ],
+    });
+  }
+
+  return nodes;
+}
+
+function createCardResult(minR: number, minC: number, width: number, height: number): ToolResult {
+  if (height < 3 || width < 6) return null;
+  const nodes = buildCardNodes(minC, minR, width, height, DEFAULT_CARD_TITLE);
+  return { kind: 'createMany', nodes, groupName: 'Card' };
 }
 
 export const cardTool: DrawingTool = {
@@ -57,18 +96,12 @@ export const cardTool: DrawingTool = {
   icon: 'CreditCard',
 
   onClick(pos: GridPos): ToolResult {
-    return {
-      kind: 'create',
-      node: {
-        type: 'card',
-        name: 'Card',
-        bounds: { x: pos.col, y: pos.row, width: 20, height: 8 },
-        title: 'Title',
-      },
-    };
+    return createCardResult(pos.row, pos.col, 20, 8);
   },
 
-  onDragStart(_pos: GridPos) { return []; },
+  onDragStart() {
+    return [];
+  },
 
   onDrag(start: GridPos, current: GridPos): PreviewCell[] | null {
     if (start.row === current.row && start.col === current.col) {
@@ -82,16 +115,6 @@ export const cardTool: DrawingTool = {
     const maxR = Math.max(start.row, end.row);
     const minC = Math.min(start.col, end.col);
     const maxC = Math.max(start.col, end.col);
-    if (maxR - minR < 2 || maxC - minC < 5) return null;
-
-    return {
-      kind: 'create',
-      node: {
-        type: 'card',
-        name: 'Card',
-        bounds: { x: minC, y: minR, width: maxC - minC + 1, height: maxR - minR + 1 },
-        title: 'Title',
-      },
-    };
+    return createCardResult(minR, minC, maxC - minC + 1, maxR - minR + 1);
   },
 };

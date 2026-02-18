@@ -23,7 +23,7 @@ export function renderScene(doc: SceneDocument): CharGrid {
 
   // Phase 1: Stamp each visible node onto the grid (bottom → top z-order)
   for (const node of nodes) {
-    if (!node.visible) continue;
+    if (!isVisibleInHierarchy(doc, node)) continue;
     if (node.type === 'group') continue; // groups don't render directly
     renderNode(grid, node, boxCharPositions);
   }
@@ -32,6 +32,18 @@ export function renderScene(doc: SceneDocument): CharGrid {
   resolveJunctions(grid, boxCharPositions);
 
   return grid;
+}
+
+function isVisibleInHierarchy(doc: SceneDocument, node: SceneNode): boolean {
+  if (!node.visible) return false;
+  let parentId = node.parentId;
+  while (parentId) {
+    const parent = doc.nodes.get(parentId);
+    if (!parent) break;
+    if (!parent.visible) return false;
+    parentId = parent.parentId;
+  }
+  return true;
 }
 
 // ── Type dispatcher ──────────────────────────────────────────────────────────
@@ -326,10 +338,13 @@ function renderRadio(grid: CharGrid, node: RadioNode): void {
 
 function renderInput(grid: CharGrid, node: InputNode): void {
   const { x, y, width } = node.bounds;
+  const innerWidth = Math.max(0, width - 2);
+  const text = (node.placeholder || '').slice(0, innerWidth);
   set(grid, y, x, '[');
   set(grid, y, x + width - 1, ']');
-  for (let c = x + 1; c < x + width - 1; c++) {
-    set(grid, y, c, '_');
+  for (let i = 0; i < innerWidth; i++) {
+    const ch = i < text.length ? text[i] : '_';
+    set(grid, y, x + 1 + i, ch);
   }
 }
 
@@ -348,15 +363,18 @@ function renderDropdown(grid: CharGrid, node: DropdownNode): void {
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 
 function renderTabs(grid: CharGrid, node: TabsNode): void {
-  const { x, y } = node.bounds;
+  const { x, y, width } = node.bounds;
   const tabs = node.tabs.map((t, i) =>
     i === node.activeIndex ? `[ ${t} ]` : ` ${t}`
   );
   const line1 = tabs.join('  ');
-  const lineWidth = Math.max(line1.length, 26);
+  const lineWidth = Math.max(1, width);
 
-  for (let i = 0; i < line1.length; i++) {
+  for (let i = 0; i < line1.length && i < lineWidth; i++) {
     set(grid, y, x + i, line1[i]);
+  }
+  for (let i = line1.length; i < lineWidth; i++) {
+    set(grid, y, x + i, ' ');
   }
   for (let i = 0; i < lineWidth; i++) {
     set(grid, y + 1, x + i, '─');

@@ -10,7 +10,7 @@ import { hitTestCornerHandle, isInsideNodeBounds } from '@/lib/scene/hit-test';
 export function Grid() {
   const containerRef = useRef<HTMLDivElement>(null);
   const { canvasRef, cellSize, scale } = useCanvasRenderer(containerRef);
-  const { handlePointerDown, handlePointerMove, handlePointerUp, handlePointerLeave } = useGridMouse(
+  const { handlePointerDown, handlePointerMove, handlePointerUp, handlePointerLeave, handleDoubleClick } = useGridMouse(
     cellSize.width,
     cellSize.height,
     scale
@@ -117,6 +117,7 @@ export function Grid() {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerLeave}
+          onDoubleClick={handleDoubleClick}
         />
       </div>
       <GeneratePrompt />

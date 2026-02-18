@@ -33,6 +33,7 @@ export function addNode(doc: SceneDocument, node: SceneNode): SceneDocument {
     if (parent && parent.type === 'group') {
       const g = { ...parent, childIds: [...parent.childIds, node.id] } as GroupNode;
       next.nodes.set(g.id, g);
+      refreshGroupChain(next, node.parentId);
     }
   } else {
     next.rootOrder = [...next.rootOrder, node.id];
@@ -73,12 +74,56 @@ function removeNodeInner(doc: SceneDocument, id: NodeId): void {
     if (parent && parent.type === 'group') {
       const g = { ...parent, childIds: (parent as GroupNode).childIds.filter(c => c !== id) } as GroupNode;
       doc.nodes.set(g.id, g);
+      refreshGroupChain(doc, node.parentId);
     }
   } else {
     doc.rootOrder = doc.rootOrder.filter(rid => rid !== id);
   }
 
   doc.nodes.delete(id);
+}
+
+function refreshGroupChain(doc: SceneDocument, parentId: NodeId | null): void {
+  let currentId = parentId;
+  while (currentId) {
+    const node = doc.nodes.get(currentId);
+    if (!node || node.type !== 'group') break;
+    const group = node as GroupNode;
+    const bounds = computeGroupBounds(doc, group);
+    doc.nodes.set(group.id, { ...group, bounds } as GroupNode);
+    currentId = group.parentId;
+  }
+}
+
+function computeGroupBounds(doc: SceneDocument, group: GroupNode): Bounds {
+  if (group.childIds.length === 0) {
+    return { ...group.bounds };
+  }
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  for (const childId of group.childIds) {
+    const child = doc.nodes.get(childId);
+    if (!child) continue;
+    minX = Math.min(minX, child.bounds.x);
+    minY = Math.min(minY, child.bounds.y);
+    maxX = Math.max(maxX, child.bounds.x + child.bounds.width);
+    maxY = Math.max(maxY, child.bounds.y + child.bounds.height);
+  }
+
+  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+    return { ...group.bounds };
+  }
+
+  return {
+    x: minX,
+    y: minY,
+    width: Math.max(1, maxX - minX),
+    height: Math.max(1, maxY - minY),
+  };
 }
 
 export function removeNodes(doc: SceneDocument, ids: NodeId[]): SceneDocument {
@@ -93,8 +138,29 @@ export function updateNode(doc: SceneDocument, id: NodeId, patch: Partial<SceneN
   const node = doc.nodes.get(id);
   if (!node) return doc;
   const next = cloneDocShallow(doc);
-  next.nodes.set(id, { ...node, ...patch, id, type: node.type } as SceneNode);
+  const updated = { ...node, ...patch, id, type: node.type } as SceneNode;
+  next.nodes.set(id, updated);
+  refreshGroupChain(next, updated.parentId);
   return next;
+}
+
+export function setNodeVisibility(doc: SceneDocument, id: NodeId, visible: boolean): SceneDocument {
+  const node = doc.nodes.get(id);
+  if (!node) return doc;
+  const next = cloneDocShallow(doc);
+  setNodeVisibilityInner(next, id, visible);
+  return next;
+}
+
+function setNodeVisibilityInner(doc: SceneDocument, id: NodeId, visible: boolean): void {
+  const node = doc.nodes.get(id);
+  if (!node) return;
+  doc.nodes.set(id, { ...node, visible } as SceneNode);
+  if (node.type === 'group') {
+    for (const childId of (node as GroupNode).childIds) {
+      setNodeVisibilityInner(doc, childId, visible);
+    }
+  }
 }
 
 export function moveNode(doc: SceneDocument, id: NodeId, dRow: number, dCol: number): SceneDocument {
@@ -107,19 +173,29 @@ export function moveNode(doc: SceneDocument, id: NodeId, dRow: number, dCol: num
   const clampedDRow = Math.max(-node.bounds.y, Math.min(doc.gridRows - node.bounds.height - node.bounds.y, dRow));
 
   shiftNodeBounds(next, id, clampedDRow, clampedDCol);
+  refreshGroupChain(next, node.parentId);
   return next;
 }
 
 function shiftNodeBounds(doc: SceneDocument, id: NodeId, dRow: number, dCol: number): void {
   const node = doc.nodes.get(id);
   if (!node) return;
-  const newBounds: Bounds = {
-    x: node.bounds.x + dCol,
-    y: node.bounds.y + dRow,
-    width: node.bounds.width,
-    height: node.bounds.height,
-  };
-  doc.nodes.set(id, { ...node, bounds: newBounds } as SceneNode);
+  if (node.type === 'line' || node.type === 'arrow') {
+    const points = node.points.map((point) => ({
+      row: point.row + dRow,
+      col: point.col + dCol,
+    }));
+    const bounds = boundsFromPoints(points);
+    doc.nodes.set(id, { ...node, points, bounds } as SceneNode);
+  } else {
+    const newBounds: Bounds = {
+      x: node.bounds.x + dCol,
+      y: node.bounds.y + dRow,
+      width: node.bounds.width,
+      height: node.bounds.height,
+    };
+    doc.nodes.set(id, { ...node, bounds: newBounds } as SceneNode);
+  }
 
   // Recurse into group children (they move with the same clamped delta)
   if (node.type === 'group') {
@@ -138,6 +214,7 @@ export function moveNodes(doc: SceneDocument, ids: NodeId[], dRow: number, dCol:
     const clampedDCol = Math.max(-node.bounds.x, Math.min(doc.gridCols - node.bounds.width - node.bounds.x, dCol));
     const clampedDRow = Math.max(-node.bounds.y, Math.min(doc.gridRows - node.bounds.height - node.bounds.y, dRow));
     shiftNodeBounds(next, id, clampedDRow, clampedDCol);
+    refreshGroupChain(next, node.parentId);
   }
   return next;
 }
@@ -162,8 +239,135 @@ export function resizeNode(doc: SceneDocument, id: NodeId, newBounds: Bounds): S
   // Re-enforce minimums after clamping
   if (clamped.width < 1) clamped.width = 1;
   if (clamped.height < 1) clamped.height = 1;
+
+  if (node.type === 'group') {
+    const sx = clamped.width / Math.max(1, node.bounds.width);
+    const sy = clamped.height / Math.max(1, node.bounds.height);
+    next.nodes.set(id, { ...node, bounds: clamped } as SceneNode);
+    for (const childId of (node as GroupNode).childIds) {
+      scaleNodeFromGroupResize(next, childId, node.bounds, clamped, sx, sy);
+    }
+    refreshGroupChain(next, node.parentId);
+    return next;
+  }
+
+  if (node.type === 'line' || node.type === 'arrow') {
+    const sx = clamped.width / Math.max(1, node.bounds.width);
+    const sy = clamped.height / Math.max(1, node.bounds.height);
+    const points = node.points.map((point) => ({
+      row: scaleCoord(point.row, node.bounds.y, clamped.y, sy),
+      col: scaleCoord(point.col, node.bounds.x, clamped.x, sx),
+    }));
+    const bounds = boundsFromPoints(points);
+    next.nodes.set(id, { ...node, points, bounds } as SceneNode);
+    refreshGroupChain(next, node.parentId);
+    return next;
+  }
+
   next.nodes.set(id, { ...node, bounds: clamped } as SceneNode);
+  refreshGroupChain(next, node.parentId);
   return next;
+}
+
+function scaleNodeFromGroupResize(
+  doc: SceneDocument,
+  id: NodeId,
+  oldGroupBounds: Bounds,
+  newGroupBounds: Bounds,
+  sx: number,
+  sy: number
+): void {
+  const node = doc.nodes.get(id);
+  if (!node) return;
+
+  if (node.type === 'line' || node.type === 'arrow') {
+    const points = node.points.map((point) => ({
+      row: scaleCoord(point.row, oldGroupBounds.y, newGroupBounds.y, sy),
+      col: scaleCoord(point.col, oldGroupBounds.x, newGroupBounds.x, sx),
+    }));
+    const b = boundsFromPoints(points);
+    doc.nodes.set(id, { ...node, points, bounds: b } as SceneNode);
+  } else if (node.type === 'stroke') {
+    const absCells = node.cells.map((cell) => ({
+      row: node.bounds.y + cell.row,
+      col: node.bounds.x + cell.col,
+      char: cell.char,
+    }));
+    const scaledAbs = absCells.map((cell) => ({
+      row: scaleCoord(cell.row, oldGroupBounds.y, newGroupBounds.y, sy),
+      col: scaleCoord(cell.col, oldGroupBounds.x, newGroupBounds.x, sx),
+      char: cell.char,
+    }));
+    if (scaledAbs.length === 0) {
+      const bounds: Bounds = {
+        x: scaleCoord(node.bounds.x, oldGroupBounds.x, newGroupBounds.x, sx),
+        y: scaleCoord(node.bounds.y, oldGroupBounds.y, newGroupBounds.y, sy),
+        width: Math.max(1, Math.round(node.bounds.width * sx)),
+        height: Math.max(1, Math.round(node.bounds.height * sy)),
+      };
+      doc.nodes.set(id, { ...node, bounds } as SceneNode);
+      return;
+    }
+    let minRow = Infinity;
+    let maxRow = -Infinity;
+    let minCol = Infinity;
+    let maxCol = -Infinity;
+    for (const cell of scaledAbs) {
+      minRow = Math.min(minRow, cell.row);
+      maxRow = Math.max(maxRow, cell.row);
+      minCol = Math.min(minCol, cell.col);
+      maxCol = Math.max(maxCol, cell.col);
+    }
+    const bounds: Bounds = {
+      x: minCol,
+      y: minRow,
+      width: Math.max(1, maxCol - minCol + 1),
+      height: Math.max(1, maxRow - minRow + 1),
+    };
+    const cells = scaledAbs.map((cell) => ({
+      row: cell.row - bounds.y,
+      col: cell.col - bounds.x,
+      char: cell.char,
+    }));
+    doc.nodes.set(id, { ...node, bounds, cells } as SceneNode);
+  } else {
+    const bounds: Bounds = {
+      x: scaleCoord(node.bounds.x, oldGroupBounds.x, newGroupBounds.x, sx),
+      y: scaleCoord(node.bounds.y, oldGroupBounds.y, newGroupBounds.y, sy),
+      width: Math.max(1, Math.round(node.bounds.width * sx)),
+      height: Math.max(1, Math.round(node.bounds.height * sy)),
+    };
+    doc.nodes.set(id, { ...node, bounds } as SceneNode);
+  }
+
+  if (node.type === 'group') {
+    for (const childId of (node as GroupNode).childIds) {
+      scaleNodeFromGroupResize(doc, childId, oldGroupBounds, newGroupBounds, sx, sy);
+    }
+  }
+}
+
+function scaleCoord(value: number, oldOrigin: number, newOrigin: number, scale: number): number {
+  return newOrigin + Math.round((value - oldOrigin) * scale);
+}
+
+function boundsFromPoints(points: { row: number; col: number }[]): Bounds {
+  let minRow = Infinity;
+  let maxRow = -Infinity;
+  let minCol = Infinity;
+  let maxCol = -Infinity;
+  for (const point of points) {
+    minRow = Math.min(minRow, point.row);
+    maxRow = Math.max(maxRow, point.row);
+    minCol = Math.min(minCol, point.col);
+    maxCol = Math.max(maxCol, point.col);
+  }
+  return {
+    x: minCol,
+    y: minRow,
+    width: Math.max(1, maxCol - minCol + 1),
+    height: Math.max(1, maxRow - minRow + 1),
+  };
 }
 
 export function getZOrderedNodes(doc: SceneDocument): SceneNode[] {
@@ -218,7 +422,7 @@ export function sendToBack(doc: SceneDocument, id: NodeId): SceneDocument {
   return next;
 }
 
-export function groupNodes(doc: SceneDocument, ids: NodeId[]): SceneDocument {
+export function groupNodes(doc: SceneDocument, ids: NodeId[], groupName: string = 'Group'): SceneDocument {
   if (ids.length < 2) return doc;
   const next = cloneDocShallow(doc);
 
@@ -237,7 +441,7 @@ export function groupNodes(doc: SceneDocument, ids: NodeId[]): SceneDocument {
   const group: GroupNode = {
     id: groupId,
     type: 'group',
-    name: 'Group',
+    name: groupName,
     bounds: { x: minX, y: minY, width: maxX - minX, height: maxY - minY },
     visible: true,
     locked: false,
@@ -309,8 +513,10 @@ export function cloneDocument(doc: SceneDocument): SceneDocument {
       nodes.set(id, { ...node, tabs: [...node.tabs], bounds: { ...node.bounds } } as SceneNode);
     } else if (node.type === 'nav') {
       nodes.set(id, { ...node, links: [...node.links], bounds: { ...node.bounds } } as SceneNode);
-    } else if (node.type === 'list' || node.type === 'breadcrumb') {
-      nodes.set(id, { ...node, items: [...(node as any).items], bounds: { ...node.bounds } } as SceneNode);
+    } else if (node.type === 'list') {
+      nodes.set(id, { ...node, items: [...node.items], bounds: { ...node.bounds } } as SceneNode);
+    } else if (node.type === 'breadcrumb') {
+      nodes.set(id, { ...node, items: [...node.items], bounds: { ...node.bounds } } as SceneNode);
     } else {
       nodes.set(id, { ...node, bounds: { ...node.bounds } } as SceneNode);
     }

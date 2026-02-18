@@ -144,11 +144,6 @@ export function useKeyboard() {
         return;
       }
 
-      // Arrow keys (cursor movement when no selection)
-      if (e.key === 'ArrowUp') { e.preventDefault(); s.moveCursor(-1, 0); return; }
-      if (e.key === 'ArrowDown') { e.preventDefault(); s.moveCursor(1, 0); return; }
-      if (e.key === 'ArrowLeft') { e.preventDefault(); s.moveCursor(0, -1); return; }
-      if (e.key === 'ArrowRight') { e.preventDefault(); s.moveCursor(0, 1); return; }
     };
 
     const handlePaste = (e: ClipboardEvent) => {

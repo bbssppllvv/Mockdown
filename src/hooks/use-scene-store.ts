@@ -1,12 +1,14 @@
 import { create } from 'zustand';
 import { CharGrid } from '@/lib/grid-model';
-import { ToolId, MAX_UNDO, GRID_ROWS, GRID_COLS, Theme } from '@/lib/constants';
+import { ToolId, MAX_UNDO, Theme, GRID_ROWS, GRID_COLS } from '@/lib/constants';
+import { DEFAULT_TOOL_SETTINGS, ToolSettings } from '@/lib/tool-settings';
 import {
-  NodeId, SceneNode, SceneDocument, Bounds, ResizeCorner, SparseCell, NewNodeData,
+  NodeId, SceneNode, SceneDocument, Bounds, ResizeCorner, SparseCell, NewNodeData, GroupNode,
 } from '@/lib/scene/types';
 import {
   createDocument, generateId, addNode, removeNodes as removeNodesDoc,
   updateNode as updateNodeDoc, moveNodes as moveNodesDoc, resizeNode as resizeNodeDoc,
+  setNodeVisibility as setNodeVisibilityDoc,
   bringToFront as bringToFrontDoc, sendToBack as sendToBackDoc,
   groupNodes as groupNodesDoc, ungroupNode as ungroupNodeDoc,
   cloneDocument,
@@ -36,6 +38,7 @@ interface SceneState {
   isDrawing: boolean;
   drawStart: GridPos | null;
   preview: PreviewCell[] | null;
+  toolSettings: ToolSettings;
 
   // Selection
   selectedIds: NodeId[];
@@ -79,6 +82,7 @@ interface SceneState {
   removeNodes(ids: NodeId[]): void;
   moveNodes(ids: NodeId[], dRow: number, dCol: number): void;
   resizeNode(id: NodeId, newBounds: Bounds): void;
+  setNodeVisibility(id: NodeId, visible: boolean): void;
 
   // Selection
   setSelection(ids: NodeId[]): void;
@@ -122,6 +126,7 @@ interface SceneState {
   setGenerateMode(mode: 'fast' | 'quality'): void;
   clearGenerate(): void;
   setShowGridLines(show: boolean): void;
+  updateToolSettings<K extends keyof ToolSettings>(tool: K, patch: Partial<ToolSettings[K]>): void;
   toggleTheme(): void;
 
   // Text editing
@@ -137,7 +142,12 @@ interface SceneState {
   clearCanvas(): void;
 
   // Structured generation
-  applyNodes(nodes: NewNodeData[], offset: { row: number; col: number }, replaceArea?: { minRow: number; maxRow: number; minCol: number; maxCol: number }): void;
+  applyNodes(
+    nodes: NewNodeData[],
+    offset: { row: number; col: number },
+    replaceArea?: { minRow: number; maxRow: number; minCol: number; maxCol: number },
+    groupName?: string
+  ): void;
 
   // Direct grid write for generate progressive rendering
   setCharsRaw(chars: { row: number; col: number; char: string }[]): void;
@@ -158,6 +168,10 @@ export const useSceneStore = create<SceneState>((set, get) => {
     isDrawing: false,
     drawStart: null,
     preview: null,
+    toolSettings: {
+      spray: { ...DEFAULT_TOOL_SETTINGS.spray },
+      modal: { ...DEFAULT_TOOL_SETTINGS.modal },
+    },
 
     selectedIds: [],
     selectInteraction: 'idle',
@@ -228,6 +242,11 @@ export const useSceneStore = create<SceneState>((set, get) => {
       set({ document: doc, renderedGrid: makeRenderedGrid(doc) });
     },
 
+    setNodeVisibility: (id, visible) => {
+      const doc = setNodeVisibilityDoc(get().document, id, visible);
+      set({ document: doc, renderedGrid: makeRenderedGrid(doc) });
+    },
+
     // ─── Selection ────────────────────────────────────────────────────
 
     setSelection: (ids) => set({ selectedIds: ids }),
@@ -243,7 +262,6 @@ export const useSceneStore = create<SceneState>((set, get) => {
       editingTextKey: null,
       editingCursorPos: 0,
       textInputActive: false,
-      drillScope: null,
     }),
 
     setDrillScope: (id) => set({ drillScope: id, selectedIds: [] }),
@@ -410,11 +428,38 @@ export const useSceneStore = create<SceneState>((set, get) => {
     },
 
     stopEditing: () => {
+      const { editingNodeId, editingTextKey, document: doc } = get();
+
+      // Auto-delete empty text nodes (Figma: create, type nothing, click away → remove)
+      if (editingNodeId && editingTextKey) {
+        const node = doc.nodes.get(editingNodeId);
+        if (node) {
+          const text = getNodeText(node, editingTextKey);
+          if (text !== null && text.trim() === '' && node.type === 'text') {
+            const newDoc = removeNodesDoc(doc, [editingNodeId]);
+            set({
+              document: newDoc,
+              renderedGrid: makeRenderedGrid(newDoc),
+              editingNodeId: null,
+              editingTextKey: null,
+              editingCursorPos: 0,
+              textInputActive: false,
+              selectedIds: [],
+              activeTool: 'select',
+            });
+            return;
+          }
+        }
+      }
+
+      // Switch to select tool and keep the node selected (Figma-style)
       set({
         editingNodeId: null,
         editingTextKey: null,
         editingCursorPos: 0,
         textInputActive: false,
+        activeTool: 'select',
+        selectedIds: editingNodeId ? [editingNodeId] : [],
       });
     },
 
@@ -436,6 +481,18 @@ export const useSceneStore = create<SceneState>((set, get) => {
     setGenerateMode: (mode) => set({ generateMode: mode }),
     clearGenerate: () => set({ generateSelection: null, generateLoading: false }),
     setShowGridLines: (show) => set({ showGridLines: show }),
+    updateToolSettings: (tool, patch) => {
+      const settings = get().toolSettings;
+      set({
+        toolSettings: {
+          ...settings,
+          [tool]: {
+            ...settings[tool],
+            ...patch,
+          },
+        },
+      });
+    },
     toggleTheme: () => {
       const next = get().theme === 'light' ? 'dark' : 'light';
       set({ theme: next as Theme });
@@ -459,7 +516,7 @@ export const useSceneStore = create<SceneState>((set, get) => {
         const result = setNodeText(node, editingTextKey, newText);
         if (!result) return;
 
-        const newDoc = updateNodeDoc(doc, editingNodeId, { ...result.patch, bounds: result.bounds } as any);
+        const newDoc = updateNodeDoc(doc, editingNodeId, { ...result.patch, bounds: result.bounds } as Partial<SceneNode>);
         const grid = makeRenderedGrid(newDoc);
         const newPos = editingCursorPos + char.length;
         const updatedNode = newDoc.nodes.get(editingNodeId);
@@ -474,17 +531,7 @@ export const useSceneStore = create<SceneState>((set, get) => {
         });
         return;
       }
-      // Fallback: direct text at cursor (creates a StrokeNode)
-      const { cursorCol: cc, cursorRow: cr } = get();
-      if (cc >= doc.gridCols) return;
-      get().pushUndo();
-      get().addNode({
-        type: 'stroke',
-        name: 'Text',
-        bounds: { x: cc, y: cr, width: 1, height: 1 },
-        cells: [{ row: 0, col: 0, char }],
-      });
-      set({ cursorCol: Math.min(cc + 1, doc.gridCols - 1) });
+      // No fallback: typing only works inside a node's edit mode (Figma-style)
     },
 
     deleteChar: () => {
@@ -499,7 +546,7 @@ export const useSceneStore = create<SceneState>((set, get) => {
         const result = setNodeText(node, editingTextKey, newText);
         if (!result) return;
 
-        const newDoc = updateNodeDoc(doc, editingNodeId, { ...result.patch, bounds: result.bounds } as any);
+        const newDoc = updateNodeDoc(doc, editingNodeId, { ...result.patch, bounds: result.bounds } as Partial<SceneNode>);
         const grid = makeRenderedGrid(newDoc);
         const newPos = editingCursorPos - 1;
         const updatedNode = newDoc.nodes.get(editingNodeId);
@@ -532,7 +579,7 @@ export const useSceneStore = create<SceneState>((set, get) => {
       const result = setNodeText(node, editingTextKey, newText);
       if (!result) return;
 
-      const newDoc = updateNodeDoc(doc, editingNodeId, { ...result.patch, bounds: result.bounds } as any);
+      const newDoc = updateNodeDoc(doc, editingNodeId, { ...result.patch, bounds: result.bounds } as Partial<SceneNode>);
       const grid = makeRenderedGrid(newDoc);
       const updatedNode = newDoc.nodes.get(editingNodeId);
       const gridPos = updatedNode ? getTextCursorGridPos(updatedNode, editingTextKey, editingCursorPos) : null;
@@ -638,7 +685,7 @@ export const useSceneStore = create<SceneState>((set, get) => {
 
     // ─── Structured generation ──────────────────────────────────────────────
 
-    applyNodes: (nodes, offset, replaceArea) => {
+    applyNodes: (nodes, offset, replaceArea, groupName) => {
       let doc = get().document;
 
       // Remove old nodes fully contained within replaceArea
@@ -683,12 +730,12 @@ export const useSceneStore = create<SceneState>((set, get) => {
 
       // Group all created nodes if more than one
       if (createdIds.length > 1) {
-        doc = groupNodesDoc(doc, createdIds);
+        doc = groupNodesDoc(doc, createdIds, groupName ?? 'Group');
         // Find the new group ID
         const idSet = new Set(createdIds);
         const groupId = [...doc.nodes.keys()].find(id => {
           const n = doc.nodes.get(id);
-          return n?.type === 'group' && (n as any).childIds?.some((c: string) => idSet.has(c));
+          return n?.type === 'group' && (n as GroupNode).childIds.some((c: string) => idSet.has(c));
         });
         set({
           document: doc,

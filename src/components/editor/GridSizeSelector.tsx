@@ -6,8 +6,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useEditorStore } from '@/hooks/use-editor-store';
-import { GRID_PRESETS } from '@/lib/constants';
-import { useState, useEffect } from 'react';
+import { GRID_PRESETS, computeAutoGridSize } from '@/lib/constants';
+import { useState } from 'react';
 
 export function GridSizeSelector() {
   const grid = useEditorStore((s) => s.renderedGrid);
@@ -15,8 +15,6 @@ export function GridSizeSelector() {
   const [customCols, setCustomCols] = useState('');
   const [customRows, setCustomRows] = useState('');
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
 
   const handleCustomApply = () => {
     const cols = parseInt(customCols) || grid.cols;
@@ -27,14 +25,6 @@ export function GridSizeSelector() {
     }
   };
 
-  if (!mounted) {
-    return (
-      <button className="text-[10px] font-medium text-foreground/40 select-none">
-        {grid.cols}&times;{grid.rows}
-      </button>
-    );
-  }
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -44,6 +34,16 @@ export function GridSizeSelector() {
       </PopoverTrigger>
       <PopoverContent className="w-52 p-2" align="end" side="top">
         <div className="text-[10px] font-semibold text-foreground/30 mb-1.5 px-2 uppercase tracking-wider">Grid Size</div>
+        <button
+          className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-medium transition-colors duration-100 text-foreground/70 hover:bg-foreground/5 hover:text-foreground"
+          onClick={() => {
+            const auto = computeAutoGridSize();
+            resizeGrid(auto.rows, auto.cols);
+            setOpen(false);
+          }}
+        >
+          Auto (fit screen)
+        </button>
         {GRID_PRESETS.map((preset) => (
           <button
             key={preset.label}

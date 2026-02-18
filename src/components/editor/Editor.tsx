@@ -5,6 +5,7 @@ import { Toolbar } from './Toolbar';
 import { Grid } from './Grid';
 import { StatusBar } from './StatusBar';
 import { MobileToolbar } from './MobileToolbar';
+import { PropertiesPanel } from './PropertiesPanel';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { Toaster } from '@/components/ui/sonner';
@@ -44,6 +45,11 @@ export function Editor() {
             className="md:hidden shrink-0"
             style={{ height: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}
           />
+        </div>
+
+        {/* Desktop inspector panel */}
+        <div className="hidden md:block h-full">
+          <PropertiesPanel />
         </div>
 
         {/* Mobile bottom toolbar + sheet */}
