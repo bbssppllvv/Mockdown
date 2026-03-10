@@ -224,13 +224,14 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
 
       if (s.selectInteraction === 'resizing' && s.selectDragStart && s.originalBoundsMap && s.resizeCorner && s.selectedIds.length === 1) {
         const nodeId = s.selectedIds[0];
+        const node = s.document.nodes.get(nodeId);
         const origBounds = s.originalBoundsMap.get(nodeId);
-        if (!origBounds) return;
+        if (!origBounds || !node) return;
         const dRow = pos.row - s.selectDragStart.row;
         const dCol = pos.col - s.selectDragStart.col;
         const newBounds = clampBoundsToDocument(
           s.document,
-          computeResizedBounds(origBounds, s.resizeCorner, dRow, dCol)
+          computeResizedBounds(origBounds, node, s.resizeCorner, dRow, dCol)
         );
         // Show resize preview as empty outline
         const preview: { row: number; col: number; char: string }[] = [];
@@ -355,14 +356,15 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
       if (s.selectInteraction === 'resizing' && s.selectDragStart && s.originalBoundsMap && s.resizeCorner && s.selectedIds.length === 1) {
         const pos = getPos(e, cellWidth, cellHeight, scale);
         const nodeId = s.selectedIds[0];
+        const node = s.document.nodes.get(nodeId);
         const origBounds = s.originalBoundsMap.get(nodeId);
-        if (origBounds) {
+        if (origBounds && node) {
           const dRow = pos.row - s.selectDragStart.row;
           const dCol = pos.col - s.selectDragStart.col;
           if (dRow !== 0 || dCol !== 0) {
             const newBounds = clampBoundsToDocument(
               s.document,
-              computeResizedBounds(origBounds, s.resizeCorner, dRow, dCol)
+              computeResizedBounds(origBounds, node, s.resizeCorner, dRow, dCol)
             );
             s.resizeNode(nodeId, newBounds);
           } else {
@@ -583,13 +585,13 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
 
 function computeResizedBounds(
   orig: Bounds,
+  node: SceneNode,
   corner: string,
   dRow: number,
   dCol: number
 ): Bounds {
   let { x, y, width, height } = orig;
-  const minW = 2;
-  const minH = 1;
+  const { minWidth, minHeight, fixedHeight } = getResizeConstraints(node);
   const origRight = orig.x + orig.width - 1;
   const origBottom = orig.y + orig.height - 1;
 
@@ -616,20 +618,38 @@ function computeResizedBounds(
       break;
   }
 
-  if (width < minW) {
-    width = minW;
+  if (width < minWidth) {
+    width = minWidth;
     if (corner === 'top-left' || corner === 'bottom-left') {
-      x = origRight - minW + 1;
+      x = origRight - minWidth + 1;
     }
   }
-  if (height < minH) {
-    height = minH;
+  if (fixedHeight !== null) {
+    height = fixedHeight;
     if (corner === 'top-left' || corner === 'top-right') {
-      y = origBottom - minH + 1;
+      y = origBottom - fixedHeight + 1;
+    }
+  } else if (height < minHeight) {
+    height = minHeight;
+    if (corner === 'top-left' || corner === 'top-right') {
+      y = origBottom - minHeight + 1;
     }
   }
 
   return { x, y, width, height };
+}
+
+function getResizeConstraints(node: SceneNode): {
+  minWidth: number;
+  minHeight: number;
+  fixedHeight: number | null;
+} {
+  switch (node.type) {
+    case 'button':
+      return { minWidth: 4, minHeight: 1, fixedHeight: 1 };
+    default:
+      return { minWidth: 2, minHeight: 1, fixedHeight: null };
+  }
 }
 
 function mergeSelection(base: string[], extra: string[]): string[] {

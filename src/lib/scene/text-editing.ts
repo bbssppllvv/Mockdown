@@ -67,7 +67,7 @@ export function setNodeText(
   switch (node.type) {
     case 'button':
       if (key !== 'label') return null;
-      return { patch: { label: text }, bounds: { ...b, width: Math.max(4, text.length + 4) } };
+      return { patch: { label: text }, bounds: { ...b, width: Math.max(b.width, text.length + 4) } };
     case 'checkbox':
     case 'radio':
       if (key !== 'label') return null;

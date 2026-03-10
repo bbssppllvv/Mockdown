@@ -149,6 +149,11 @@ export function updateNode(doc: SceneDocument, id: NodeId, patch: Partial<SceneN
 function fitBoundsToContent(node: SceneNode): void {
   const b = node.bounds;
   switch (node.type) {
+    case 'button': {
+      const minW = node.label.length + 4;
+      node.bounds = { ...b, width: Math.max(minW, b.width), height: 1 };
+      break;
+    }
     case 'table': {
       // height = 1 (top border) + 1 (header) + 1 (separator) + rowCount + 1 (bottom border)
       const minH = node.rowCount + 3;
@@ -301,12 +306,17 @@ export function resizeNode(doc: SceneDocument, id: NodeId, newBounds: Bounds): S
   const node = doc.nodes.get(id);
   if (!node) return doc;
   const next = cloneDocShallow(doc);
+  const minWidth = getMinWidth(node);
+  const minHeight = getMinHeight(node);
+  const x = Math.min(Math.max(0, newBounds.x), Math.max(0, doc.gridCols - minWidth));
+  const y = Math.min(Math.max(0, newBounds.y), Math.max(0, doc.gridRows - minHeight));
+  const constrained = constrainBoundsForNode(node, { ...newBounds, x, y });
   // Clamp to grid bounds and enforce minimum size
   const clamped: Bounds = {
-    x: Math.max(0, newBounds.x),
-    y: Math.max(0, newBounds.y),
-    width: Math.max(1, newBounds.width),
-    height: Math.max(1, newBounds.height),
+    x,
+    y,
+    width: Math.max(minWidth, constrained.width),
+    height: Math.max(minHeight, constrained.height),
   };
   if (clamped.x + clamped.width > doc.gridCols) {
     clamped.width = doc.gridCols - clamped.x;
@@ -315,8 +325,8 @@ export function resizeNode(doc: SceneDocument, id: NodeId, newBounds: Bounds): S
     clamped.height = doc.gridRows - clamped.y;
   }
   // Re-enforce minimums after clamping
-  if (clamped.width < 1) clamped.width = 1;
-  if (clamped.height < 1) clamped.height = 1;
+  if (clamped.width < minWidth) clamped.width = minWidth;
+  if (clamped.height < minHeight) clamped.height = minHeight;
 
   if (node.type === 'group') {
     const sx = clamped.width / Math.max(1, node.bounds.width);
@@ -345,6 +355,33 @@ export function resizeNode(doc: SceneDocument, id: NodeId, newBounds: Bounds): S
   next.nodes.set(id, { ...node, bounds: clamped } as SceneNode);
   refreshGroupChain(next, node.parentId);
   return next;
+}
+
+function getMinWidth(node: SceneNode): number {
+  switch (node.type) {
+    case 'button':
+      return 4;
+    default:
+      return 1;
+  }
+}
+
+function getMinHeight(node: SceneNode): number {
+  switch (node.type) {
+    case 'button':
+      return 1;
+    default:
+      return 1;
+  }
+}
+
+function constrainBoundsForNode(node: SceneNode, bounds: Bounds): Bounds {
+  switch (node.type) {
+    case 'button':
+      return { ...bounds, height: 1 };
+    default:
+      return bounds;
+  }
 }
 
 function scaleNodeFromGroupResize(

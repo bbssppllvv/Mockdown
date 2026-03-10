@@ -1,12 +1,12 @@
 import { CharGrid } from '../grid-model';
 import {
-  SceneDocument, SceneNode, Bounds,
+  SceneDocument, SceneNode,
   BoxNode, CardNode, TableNode, HSplitNode, PlaceholderNode,
   ButtonNode, CheckboxNode, RadioNode, InputNode, DropdownNode,
   TabsNode, NavNode, ListNode, ModalNode, SearchNode, ToggleNode,
   ProgressNode, BreadcrumbNode, PaginationNode,
   LineNode, ArrowNode, TextNode,
-  StrokeNode, GroupNode,
+  StrokeNode,
 } from './types';
 import { getZOrderedNodes } from './document';
 import { BOX, isAnyBoxChar, getBoxDirs, dirsToBoxChar } from '../box-chars';
@@ -304,9 +304,18 @@ function renderPlaceholder(grid: CharGrid, node: PlaceholderNode, bp: { row: num
 // ── Button ───────────────────────────────────────────────────────────────────
 
 function renderButton(grid: CharGrid, node: ButtonNode): void {
-  const { x, y } = node.bounds;
+  const { x, y, width } = node.bounds;
   const label = node.label || 'OK';
-  const str = `[ ${label} ]`;
+  let str = '[';
+  if (width === 2) {
+    str = '[]';
+  } else if (width === 3) {
+    str = '[ ]';
+  } else if (width >= 4) {
+    const innerWidth = width - 4;
+    const paddedLabel = label.slice(0, innerWidth).padEnd(innerWidth, ' ');
+    str = `[ ${paddedLabel} ]`;
+  }
   for (let i = 0; i < str.length; i++) {
     set(grid, y, x + i, str[i]);
   }
