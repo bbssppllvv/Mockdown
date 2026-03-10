@@ -22,6 +22,20 @@ export function StatusBar() {
       </span>
       <div className="flex-1" />
       <GridSizeSelector />
+      <div className="flex items-center gap-2 border-l border-border/60 pl-4">
+        <span className="hidden xl:inline text-foreground/35">
+          Real product UI research for agents.
+        </span>
+        <a
+          href="https://refero.design/mcp"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center border border-border/60 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-foreground/55 transition-colors hover:border-[#2563eb] hover:bg-[#2563eb] hover:text-white"
+          title="Refero MCP connects agents to curated real product screens and user flows."
+        >
+          Refero MCP
+        </a>
+      </div>
       <Link href="/about" className="hover:text-foreground/60 transition-colors">
         About
       </Link>
