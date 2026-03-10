@@ -2,14 +2,19 @@ import { DrawingTool, GridPos, PreviewCell, ToolResult } from './types';
 
 const DEFAULT_LABEL = 'OK';
 
-function buildButtonPreview(minR: number, minC: number, width: number): PreviewCell[] {
-  const inner = width - 4; // "[ " + " ]"
-  if (inner < 1) return [];
-  const label = DEFAULT_LABEL.slice(0, inner).padEnd(inner, ' ');
-  const str = `[ ${label} ]`;
+function buildButtonPreview(minR: number, minC: number, width: number, height: number): PreviewCell[] {
+  const inner = Math.max(0, width - 2);
+  if (width < 2 || height < 1) return [];
+  const label = DEFAULT_LABEL.slice(0, inner);
+  const labelRow = minR + Math.floor((height - 1) / 2);
+  const labelCol = minC + 1 + Math.max(0, Math.floor((inner - label.length) / 2));
   const cells: PreviewCell[] = [];
-  for (let i = 0; i < str.length; i++) {
-    cells.push({ row: minR, col: minC + i, char: str[i] });
+  for (let r = minR; r < minR + height; r++) {
+    cells.push({ row: r, col: minC, char: '[' });
+    cells.push({ row: r, col: minC + width - 1, char: ']' });
+  }
+  for (let i = 0; i < label.length; i++) {
+    cells.push({ row: labelRow, col: labelCol + i, char: label[i] });
   }
   return cells;
 }
@@ -39,17 +44,21 @@ export const buttonTool: DrawingTool = {
   onDrag(start: GridPos, current: GridPos): PreviewCell[] | null {
     const minR = Math.min(start.row, current.row);
     const minC = Math.min(start.col, current.col);
+    const maxR = Math.max(start.row, current.row);
     const maxC = Math.max(start.col, current.col);
     const w = Math.max(maxC - minC + 1, 6); // min "[ OK ]"
-    return buildButtonPreview(minR, minC, w);
+    const h = Math.max(maxR - minR + 1, 1);
+    return buildButtonPreview(minR, minC, w, h);
   },
 
   onDragEnd(start: GridPos, end: GridPos): ToolResult {
     const minR = Math.min(start.row, end.row);
     const minC = Math.min(start.col, end.col);
+    const maxR = Math.max(start.row, end.row);
     const maxC = Math.max(start.col, end.col);
     const w = Math.max(maxC - minC + 1, 6);
-    const inner = w - 4;
+    const h = Math.max(maxR - minR + 1, 1);
+    const inner = w - 2;
     const label = DEFAULT_LABEL.slice(0, inner);
 
     return {
@@ -57,7 +66,7 @@ export const buttonTool: DrawingTool = {
       node: {
         type: 'button',
         name: 'Button',
-        bounds: { x: minC, y: minR, width: w, height: 1 },
+        bounds: { x: minC, y: minR, width: w, height: h },
         label,
       },
     };

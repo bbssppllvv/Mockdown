@@ -646,7 +646,7 @@ function getResizeConstraints(node: SceneNode): {
 } {
   switch (node.type) {
     case 'button':
-      return { minWidth: 4, minHeight: 1, fixedHeight: 1 };
+      return { minWidth: 2, minHeight: 1, fixedHeight: null };
     default:
       return { minWidth: 2, minHeight: 1, fixedHeight: null };
   }

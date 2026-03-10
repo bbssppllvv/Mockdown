@@ -9,6 +9,7 @@ import {
   StrokeNode,
 } from './types';
 import { getZOrderedNodes } from './document';
+import { getButtonLabelRow, getButtonLabelStart, getButtonVisibleLabel } from './button-layout';
 import { BOX, isAnyBoxChar, getBoxDirs, dirsToBoxChar } from '../box-chars';
 import { buildPolylineCells } from '../polyline';
 
@@ -304,20 +305,25 @@ function renderPlaceholder(grid: CharGrid, node: PlaceholderNode, bp: { row: num
 // ── Button ───────────────────────────────────────────────────────────────────
 
 function renderButton(grid: CharGrid, node: ButtonNode): void {
-  const { x, y, width } = node.bounds;
-  const label = node.label || 'OK';
-  let str = '[';
-  if (width === 2) {
-    str = '[]';
-  } else if (width === 3) {
-    str = '[ ]';
-  } else if (width >= 4) {
-    const innerWidth = width - 4;
-    const paddedLabel = label.slice(0, innerWidth).padEnd(innerWidth, ' ');
-    str = `[ ${paddedLabel} ]`;
+  const { x, y, width, height } = node.bounds;
+  if (width < 2 || height < 1) return;
+
+  const maxR = y + height - 1;
+  const right = x + width - 1;
+
+  for (let r = y; r <= maxR; r++) {
+    set(grid, r, x, '[');
+    set(grid, r, right, ']');
+    for (let c = x + 1; c < right; c++) {
+      set(grid, r, c, ' ');
+    }
   }
-  for (let i = 0; i < str.length; i++) {
-    set(grid, y, x + i, str[i]);
+
+  const visibleLabel = getButtonVisibleLabel(node);
+  const labelRow = getButtonLabelRow(node);
+  const labelStart = getButtonLabelStart(node);
+  for (let i = 0; i < visibleLabel.length; i++) {
+    set(grid, labelRow, labelStart + i, visibleLabel[i]);
   }
 }
 

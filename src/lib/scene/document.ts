@@ -151,7 +151,7 @@ function fitBoundsToContent(node: SceneNode): void {
   switch (node.type) {
     case 'button': {
       const minW = node.label.length + 4;
-      node.bounds = { ...b, width: Math.max(minW, b.width), height: 1 };
+      node.bounds = { ...b, width: Math.max(minW, b.width), height: Math.max(1, b.height) };
       break;
     }
     case 'table': {
@@ -310,7 +310,7 @@ export function resizeNode(doc: SceneDocument, id: NodeId, newBounds: Bounds): S
   const minHeight = getMinHeight(node);
   const x = Math.min(Math.max(0, newBounds.x), Math.max(0, doc.gridCols - minWidth));
   const y = Math.min(Math.max(0, newBounds.y), Math.max(0, doc.gridRows - minHeight));
-  const constrained = constrainBoundsForNode(node, { ...newBounds, x, y });
+  const constrained = { ...newBounds, x, y };
   // Clamp to grid bounds and enforce minimum size
   const clamped: Bounds = {
     x,
@@ -360,7 +360,7 @@ export function resizeNode(doc: SceneDocument, id: NodeId, newBounds: Bounds): S
 function getMinWidth(node: SceneNode): number {
   switch (node.type) {
     case 'button':
-      return 4;
+      return 2;
     default:
       return 1;
   }
@@ -372,15 +372,6 @@ function getMinHeight(node: SceneNode): number {
       return 1;
     default:
       return 1;
-  }
-}
-
-function constrainBoundsForNode(node: SceneNode, bounds: Bounds): Bounds {
-  switch (node.type) {
-    case 'button':
-      return { ...bounds, height: 1 };
-    default:
-      return bounds;
   }
 }
 

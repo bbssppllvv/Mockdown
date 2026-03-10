@@ -3,6 +3,7 @@
 // Keys: 'label', 'title', 'content', 'placeholder', 'item-N', 'tab-N', 'link-N', 'col-N', 'logo', 'action'
 
 import { SceneNode, Bounds } from './types';
+import { getButtonLabelRow, getButtonLabelStart, getButtonVisibleLabel } from './button-layout';
 
 function clamp(val: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, val));
@@ -177,7 +178,10 @@ export function detectTextRegion(
 
   switch (node.type) {
     case 'button':
-      return { key: 'label', cursorPos: clamp(relCol - 2, 0, node.label.length) };
+      return {
+        key: 'label',
+        cursorPos: clamp(relCol - (getButtonLabelStart(node) - x), 0, getButtonVisibleLabel(node).length),
+      };
     case 'checkbox':
     case 'radio':
       return { key: 'label', cursorPos: clamp(relCol - 2, 0, node.label.length) };
@@ -278,7 +282,13 @@ export function getTextCursorGridPos(
   const { x, y } = node.bounds;
 
   switch (node.type) {
-    case 'button': return { row: y, col: x + 2 + cursorPos };
+    case 'button': {
+      const visibleLabel = getButtonVisibleLabel(node);
+      return {
+        row: getButtonLabelRow(node),
+        col: getButtonLabelStart(node) + Math.min(cursorPos, visibleLabel.length),
+      };
+    }
     case 'checkbox':
     case 'radio': return { row: y, col: x + 2 + cursorPos };
     case 'dropdown': return { row: y, col: x + 3 + cursorPos };
