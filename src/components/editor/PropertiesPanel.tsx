@@ -562,12 +562,6 @@ export function PropertiesPanelContent({ showLayers = true }: { showLayers?: boo
   const [renamingId, setRenamingId] = useState<NodeId | null>(null);
   const suppressLayerClickRef = useRef(false);
 
-  const selectedNodes = useMemo(
-    () => selectedIds
-      .map((id) => doc.nodes.get(id))
-      .filter((node): node is SceneNode => Boolean(node)),
-    [doc, selectedIds],
-  );
   const selectedNode = selectedIds.length === 1 ? doc.nodes.get(selectedIds[0]) ?? null : null;
   const drillNode = drillScope ? doc.nodes.get(drillScope) : null;
   const layerRootIds = drillNode && drillNode.type === 'group' ? drillNode.childIds : doc.rootOrder;
@@ -575,7 +569,6 @@ export function PropertiesPanelContent({ showLayers = true }: { showLayers?: boo
     () => buildLayerRows(doc, layerRootIds, collapsedGroupIds),
     [doc, layerRootIds, collapsedGroupIds],
   );
-  const allSelectedVisible = selectedNodes.length > 0 && selectedNodes.every((node) => node.visible);
 
   const {
     registerRowRef,
@@ -630,14 +623,6 @@ export function PropertiesPanelContent({ showLayers = true }: { showLayers?: boo
     pushUndo();
     removeNodes(ids);
     if (renamingId && ids.includes(renamingId)) setRenamingId(null);
-  };
-
-  const toggleSelectedVisibility = () => {
-    if (selectedNodes.length === 0) return;
-    pushUndo();
-    for (const node of selectedNodes) {
-      setNodeVisibility(node.id, !allSelectedVisible);
-    }
   };
 
   const runOnSelection = (nodeId: NodeId, action: () => void) => {
@@ -710,23 +695,6 @@ export function PropertiesPanelContent({ showLayers = true }: { showLayers?: boo
     reparentLayers(result.dragIds, result.dropTarget.parentId, result.dropTarget.index);
     setSelection(result.dragIds);
   };
-
-  const selectionActions = (
-    <div className="flex flex-wrap gap-1.5">
-      {selectedIds.length >= 2 ? (
-        <ActionButton label="Group" onClick={groupSelected} />
-      ) : null}
-      {selectedNode?.type === 'group' ? (
-        <ActionButton label="Ungroup" onClick={ungroupSelected} />
-      ) : null}
-      {selectedNodes.length > 0 ? (
-        <>
-          <ActionButton label={allSelectedVisible ? 'Hide' : 'Show'} onClick={toggleSelectedVisibility} />
-          <ActionButton label="Delete" onClick={() => deleteIds(selectedIds)} tone="danger" />
-        </>
-      ) : null}
-    </div>
-  );
 
   const layersPane = showLayers ? (
     <div className="flex min-h-[220px] max-h-[44%] flex-col border-b border-border/60">
@@ -891,7 +859,9 @@ export function PropertiesPanelContent({ showLayers = true }: { showLayers?: boo
             <div className="text-xs text-foreground/55">
               {selectedIds.length} objects selected.
             </div>
-            {selectionActions}
+            <div className="text-[11px] text-foreground/42">
+              Use the layer list, context menu, or shortcuts to group, hide, or delete them.
+            </div>
           </Subsection>
         ) : null}
 
@@ -906,7 +876,6 @@ export function PropertiesPanelContent({ showLayers = true }: { showLayers?: boo
                   {selectedNode.type}
                 </div>
               </div>
-              {selectionActions}
             </Subsection>
 
             <Subsection title="Properties">
@@ -914,15 +883,6 @@ export function PropertiesPanelContent({ showLayers = true }: { showLayers?: boo
                 <CommitTextInput
                   value={selectedNode.name}
                   onCommit={(name) => commitPatch(selectedNode, { name })}
-                />
-              </FieldRow>
-              <FieldRow label="visible">
-                <BooleanToggle
-                  value={selectedNode.visible}
-                  onChange={(visible) => {
-                    pushUndo();
-                    setNodeVisibility(selectedNode.id, visible);
-                  }}
                 />
               </FieldRow>
             </Subsection>
