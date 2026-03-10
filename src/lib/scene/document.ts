@@ -227,6 +227,36 @@ export function moveNode(doc: SceneDocument, id: NodeId, dRow: number, dCol: num
   return next;
 }
 
+export function clampMoveDelta(
+  doc: SceneDocument,
+  ids: NodeId[],
+  dRow: number,
+  dCol: number
+): { dRow: number; dCol: number } {
+  let minAllowedCol = -Infinity;
+  let maxAllowedCol = Infinity;
+  let minAllowedRow = -Infinity;
+  let maxAllowedRow = Infinity;
+  let foundNode = false;
+
+  for (const id of ids) {
+    const node = doc.nodes.get(id);
+    if (!node) continue;
+    foundNode = true;
+    minAllowedCol = Math.max(minAllowedCol, -node.bounds.x);
+    maxAllowedCol = Math.min(maxAllowedCol, doc.gridCols - node.bounds.width - node.bounds.x);
+    minAllowedRow = Math.max(minAllowedRow, -node.bounds.y);
+    maxAllowedRow = Math.min(maxAllowedRow, doc.gridRows - node.bounds.height - node.bounds.y);
+  }
+
+  if (!foundNode) return { dRow, dCol };
+
+  return {
+    dRow: Math.max(minAllowedRow, Math.min(maxAllowedRow, dRow)),
+    dCol: Math.max(minAllowedCol, Math.min(maxAllowedCol, dCol)),
+  };
+}
+
 function shiftNodeBounds(doc: SceneDocument, id: NodeId, dRow: number, dCol: number): void {
   const node = doc.nodes.get(id);
   if (!node) return;
@@ -257,13 +287,11 @@ function shiftNodeBounds(doc: SceneDocument, id: NodeId, dRow: number, dCol: num
 
 export function moveNodes(doc: SceneDocument, ids: NodeId[], dRow: number, dCol: number): SceneDocument {
   const next = cloneDocShallow(doc);
+  const clamped = clampMoveDelta(doc, ids, dRow, dCol);
   for (const id of ids) {
     const node = next.nodes.get(id);
     if (!node) continue;
-    // Clamp delta so each top-level node stays on canvas
-    const clampedDCol = Math.max(-node.bounds.x, Math.min(doc.gridCols - node.bounds.width - node.bounds.x, dCol));
-    const clampedDRow = Math.max(-node.bounds.y, Math.min(doc.gridRows - node.bounds.height - node.bounds.y, dRow));
-    shiftNodeBounds(next, id, clampedDRow, clampedDCol);
+    shiftNodeBounds(next, id, clamped.dRow, clamped.dCol);
     refreshGroupChain(next, node.parentId);
   }
   return next;

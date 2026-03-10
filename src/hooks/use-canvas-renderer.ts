@@ -102,7 +102,15 @@ export function useCanvasRenderer(
         minCol = Math.min(minCol, node.bounds.x);
         maxCol = Math.max(maxCol, node.bounds.x + node.bounds.width - 1);
       }
-      if (minRow <= maxRow) selectionRect = { minRow, maxRow, minCol, maxCol };
+      if (minRow <= maxRow) {
+        selectionRect = {
+          minRow,
+          maxRow,
+          minCol,
+          maxCol,
+          showHandles: store.selectedIds.length === 1,
+        };
+      }
     }
 
     const cursor = { row: store.cursorRow, col: store.cursorCol };

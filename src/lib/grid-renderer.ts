@@ -10,6 +10,7 @@ export interface SelectionRect {
   maxRow: number;
   minCol: number;
   maxCol: number;
+  showHandles?: boolean;
 }
 
 export interface RenderConfig {
@@ -227,8 +228,7 @@ export function drawGrid(
     ctx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
     ctx.restore();
 
-    // Corner handles for all selection types
-    {
+    if (selection.showHandles) {
       const handleSize = 10;
       const half = handleSize / 2;
       ctx.fillStyle = `rgba(${a}, 0.9)`;

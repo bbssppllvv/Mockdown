@@ -1,8 +1,9 @@
 import { useSceneStore } from './use-scene-store';
 import { getTool } from '@/components/tools/registry';
-import { hitTestPoint, hitTestRegion, hitTestCornerHandle, isInsideNodeBounds } from '@/lib/scene/hit-test';
+import { hitTestPoint, hitTestRegion, hitTestCornerHandle } from '@/lib/scene/hit-test';
 import { SparseCell, Bounds, GroupNode, SceneNode } from '@/lib/scene/types';
 import { detectTextRegion, getPrimaryTextKey, getNodeText } from '@/lib/scene/text-editing';
+import { clampMoveDelta } from '@/lib/scene/document';
 
 // Module-level tracking for continuous drawing tools
 let lastContinuousPos: { row: number; col: number } | null = null;
@@ -11,6 +12,8 @@ let continuousAccumulator: SparseCell[] = [];
 // 1.4: Track last hover cell to avoid redundant setHover calls
 let lastHoverRow = -1;
 let lastHoverCol = -1;
+let marqueeAdditive = false;
+let marqueeBaseSelection: string[] = [];
 
 export function pixelToGrid(
   x: number, y: number, cellWidth: number, cellHeight: number, maxRows: number, maxCols: number
@@ -44,6 +47,7 @@ function getPos(e: React.PointerEvent<HTMLDivElement>, cellWidth: number, cellHe
 export function useGridMouse(cellWidth: number, cellHeight: number, scale: number = 1) {
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const s = useSceneStore.getState();
+    capturePointer(e);
 
     // If generate prompt is open, clicking on grid dismisses it
     if (s.generateSelection) {
@@ -64,7 +68,7 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
       const shiftHeld = e.shiftKey;
 
       // 1. Check corner resize handles on single-selected node
-      if (s.selectedIds.length === 1) {
+      if (!shiftHeld && s.selectedIds.length === 1) {
         const nodeId = s.selectedIds[0];
         const node = s.document.nodes.get(nodeId);
         const corner = hitTestCornerHandle(s.document, nodeId, pos.row, pos.col);
@@ -78,40 +82,26 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
         }
       }
 
-      // 2. Check if clicking inside an already-selected node → start move
-      const clickedSelectedId = s.selectedIds.find(id =>
-        isInsideNodeBounds(s.document, id, pos.row, pos.col)
-      );
-      if (clickedSelectedId) {
-        s.pushUndo();
-        s.setSelectInteraction('moving');
-        s.setSelectDragStart(pos);
-        const boundsMap = new Map<string, Bounds>();
-        for (const id of s.selectedIds) {
-          const n = s.document.nodes.get(id);
-          if (n) boundsMap.set(id, { ...n.bounds });
-        }
-        s.setOriginalBoundsMap(boundsMap);
+      // 2. Hit-test the actual topmost node under the cursor.
+      const hitId = hitTestPoint(s.document, pos.row, pos.col, s.drillScope);
+
+      if (shiftHeld && hitId) {
+        const alreadySelected = s.selectedIds.includes(hitId);
+        s.setSelection(
+          alreadySelected
+            ? s.selectedIds.filter(id => id !== hitId)
+            : [...s.selectedIds, hitId]
+        );
         return;
       }
 
-      // 3. Hit-test for unselected node under cursor
-      const hitId = hitTestPoint(s.document, pos.row, pos.col, s.drillScope);
-
       if (hitId) {
-        // Shift+click → toggle in/out of selection
-        if (shiftHeld) {
-          const alreadySelected = s.selectedIds.includes(hitId);
-          const newIds = alreadySelected
-            ? s.selectedIds.filter(id => id !== hitId)
-            : [...s.selectedIds, hitId];
-          s.setSelection(newIds);
-          // Prepare for potential move of the new selection
+        if (s.selectedIds.includes(hitId)) {
           s.pushUndo();
           s.setSelectInteraction('moving');
           s.setSelectDragStart(pos);
           const boundsMap = new Map<string, Bounds>();
-          for (const id of newIds) {
+          for (const id of s.selectedIds) {
             const n = s.document.nodes.get(id);
             if (n) boundsMap.set(id, { ...n.bounds });
           }
@@ -131,6 +121,8 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
       }
 
       // 4. Empty space → deselect (unless shift) and start marquee
+      marqueeAdditive = shiftHeld;
+      marqueeBaseSelection = shiftHeld ? [...s.selectedIds] : [];
       if (!shiftHeld) {
         s.clearSelection();
       }
@@ -185,8 +177,9 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
     // ── Select tool ──────────────────────────────────────────────────
     if (s.activeTool === 'select') {
       if (s.selectInteraction === 'moving' && s.selectDragStart && s.originalBoundsMap) {
-        const dRow = pos.row - s.selectDragStart.row;
-        const dCol = pos.col - s.selectDragStart.col;
+        const rawDRow = pos.row - s.selectDragStart.row;
+        const rawDCol = pos.col - s.selectDragStart.col;
+        const { dRow, dCol } = clampMoveDelta(s.document, s.selectedIds, rawDRow, rawDCol);
         // Build move preview from original bounds
         const preview: { row: number; col: number; char: string }[] = [];
         const addOutline = (nb: Bounds) => {
@@ -233,7 +226,10 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
         if (!origBounds) return;
         const dRow = pos.row - s.selectDragStart.row;
         const dCol = pos.col - s.selectDragStart.col;
-        const newBounds = computeResizedBounds(origBounds, s.resizeCorner, dRow, dCol);
+        const newBounds = clampBoundsToDocument(
+          s.document,
+          computeResizedBounds(origBounds, s.resizeCorner, dRow, dCol)
+        );
         // Show resize preview as empty outline
         const preview: { row: number; col: number; char: string }[] = [];
         for (let c = newBounds.x; c < newBounds.x + newBounds.width; c++) {
@@ -291,6 +287,7 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     const s = useSceneStore.getState();
+    releasePointer(e);
 
     // ── Select tool: finalize ────────────────────────────────────────
     if (s.activeTool === 'select') {
@@ -306,13 +303,13 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
           const minC = Math.min(s.selectDragStart.col, pos.col);
           const maxC = Math.max(s.selectDragStart.col, pos.col);
           const ids = hitTestRegion(s.document, minR, maxR, minC, maxC, s.drillScope);
-          s.setSelection(ids);
+          s.setSelection(marqueeAdditive ? mergeSelection(marqueeBaseSelection, ids) : ids);
         } else {
           // Click: point hit-test
           const hitId = hitTestPoint(s.document, pos.row, pos.col, s.drillScope);
           if (hitId) {
-            s.setSelection([hitId]);
-          } else {
+            s.setSelection(marqueeAdditive ? mergeSelection(marqueeBaseSelection, [hitId]) : [hitId]);
+          } else if (!marqueeAdditive) {
             s.clearSelection();
             // If in drill scope, clicking empty exits drill
             if (s.drillScope) {
@@ -324,14 +321,17 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
         s.setSelectInteraction('idle');
         s.setSelectDragStart(null);
         s.setPreview(null);
+        marqueeAdditive = false;
+        marqueeBaseSelection = [];
         return;
       }
 
       // Finalize move
       if (s.selectInteraction === 'moving' && s.selectDragStart && s.originalBoundsMap) {
         const pos = getPos(e, cellWidth, cellHeight, scale);
-        const dRow = pos.row - s.selectDragStart.row;
-        const dCol = pos.col - s.selectDragStart.col;
+        const rawDRow = pos.row - s.selectDragStart.row;
+        const rawDCol = pos.col - s.selectDragStart.col;
+        const { dRow, dCol } = clampMoveDelta(s.document, s.selectedIds, rawDRow, rawDCol);
         if (dRow !== 0 || dCol !== 0) {
           s.moveNodes(s.selectedIds, dRow, dCol);
         } else {
@@ -358,7 +358,10 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
           const dRow = pos.row - s.selectDragStart.row;
           const dCol = pos.col - s.selectDragStart.col;
           if (dRow !== 0 || dCol !== 0) {
-            const newBounds = computeResizedBounds(origBounds, s.resizeCorner, dRow, dCol);
+            const newBounds = clampBoundsToDocument(
+              s.document,
+              computeResizedBounds(origBounds, s.resizeCorner, dRow, dCol)
+            );
             s.resizeNode(nodeId, newBounds);
           } else {
             // No resize happened — pop the undo
@@ -514,12 +517,36 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
     }
   };
 
-  const handlePointerLeave = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerLeave = () => {
     lastHoverRow = -1;
     lastHoverCol = -1;
     useSceneStore.getState().setHover(-1, -1);
-    useSceneStore.getState().setPreview(null);
-    handlePointerUp(e);
+    const s = useSceneStore.getState();
+    if (!s.isDrawing && s.selectInteraction === 'idle') {
+      s.setPreview(null);
+    }
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    releasePointer(e);
+    lastHoverRow = -1;
+    lastHoverCol = -1;
+    marqueeAdditive = false;
+    marqueeBaseSelection = [];
+
+    useSceneStore.setState({
+      hoverRow: -1,
+      hoverCol: -1,
+      isDrawing: false,
+      drawStart: null,
+      preview: null,
+      selectInteraction: 'idle',
+      selectDragStart: null,
+      resizeCorner: null,
+      originalBoundsMap: null,
+    });
+    lastContinuousPos = null;
+    continuousAccumulator = [];
   };
 
   const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -547,7 +574,7 @@ export function useGridMouse(cellWidth: number, cellHeight: number, scale: numbe
     }
   };
 
-  return { handlePointerDown, handlePointerMove, handlePointerUp, handlePointerLeave, handleDoubleClick };
+  return { handlePointerDown, handlePointerMove, handlePointerUp, handlePointerLeave, handlePointerCancel, handleDoubleClick };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -589,4 +616,42 @@ function computeResizedBounds(
   if (height < minH) { height = minH; }
 
   return { x, y, width, height };
+}
+
+function mergeSelection(base: string[], extra: string[]): string[] {
+  return [...new Set([...base, ...extra])];
+}
+
+function clampBoundsToDocument(doc: { gridRows: number; gridCols: number }, bounds: Bounds): Bounds {
+  const clamped = {
+    x: Math.max(0, bounds.x),
+    y: Math.max(0, bounds.y),
+    width: Math.max(1, bounds.width),
+    height: Math.max(1, bounds.height),
+  };
+
+  if (clamped.x + clamped.width > doc.gridCols) {
+    clamped.width = doc.gridCols - clamped.x;
+  }
+  if (clamped.y + clamped.height > doc.gridRows) {
+    clamped.height = doc.gridRows - clamped.y;
+  }
+
+  return {
+    ...clamped,
+    width: Math.max(1, clamped.width),
+    height: Math.max(1, clamped.height),
+  };
+}
+
+function capturePointer(e: React.PointerEvent<HTMLDivElement>) {
+  if (!e.currentTarget.hasPointerCapture(e.pointerId)) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+}
+
+function releasePointer(e: React.PointerEvent<HTMLDivElement>) {
+  if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  }
 }

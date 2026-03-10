@@ -10,7 +10,7 @@ import { hitTestCornerHandle, isInsideNodeBounds } from '@/lib/scene/hit-test';
 export function Grid() {
   const containerRef = useRef<HTMLDivElement>(null);
   const { canvasRef, cellSize, scale } = useCanvasRenderer(containerRef);
-  const { handlePointerDown, handlePointerMove, handlePointerUp, handlePointerLeave, handleDoubleClick } = useGridMouse(
+  const { handlePointerDown, handlePointerMove, handlePointerUp, handlePointerLeave, handlePointerCancel, handleDoubleClick } = useGridMouse(
     cellSize.width,
     cellSize.height,
     scale
@@ -70,8 +70,8 @@ export function Grid() {
       if (selectInteraction === 'moving') return 'move';
       if (selectInteraction === 'resizing') return 'nwse-resize';
       if (selectedIds.length > 0 && hoverRow >= 0) {
-        for (const id of selectedIds) {
-          const corner = hitTestCornerHandle(doc, id, hoverRow, hoverCol);
+        if (selectedIds.length === 1) {
+          const corner = hitTestCornerHandle(doc, selectedIds[0], hoverRow, hoverCol);
           if (corner === 'top-left' || corner === 'bottom-right') return 'nwse-resize';
           if (corner === 'top-right' || corner === 'bottom-left') return 'nesw-resize';
         }
@@ -117,6 +117,7 @@ export function Grid() {
           onPointerDown={handleCanvasPointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
           onPointerLeave={handlePointerLeave}
           onDoubleClick={handleDoubleClick}
         />
