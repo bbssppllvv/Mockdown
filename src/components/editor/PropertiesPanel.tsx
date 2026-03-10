@@ -179,30 +179,6 @@ function BooleanToggle({ value, onChange }: { value: boolean; onChange: (next: b
   );
 }
 
-function ActionButton({
-  label,
-  onClick,
-  tone = 'default',
-}: {
-  label: string;
-  onClick: () => void;
-  tone?: 'default' | 'danger';
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`h-7 rounded-md border px-2 text-[11px] font-medium ${
-        tone === 'danger'
-          ? 'border-red-500/20 text-red-500 hover:bg-red-500/6'
-          : 'border-border/70 text-foreground/68 hover:bg-foreground/[0.04]'
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
 function EmptyHint({ children }: { children: ReactNode }) {
   return (
     <div className="px-3 py-3 text-xs leading-relaxed text-foreground/50">
@@ -319,11 +295,9 @@ function hasNodeSpecificFields(node: SceneNode): boolean {
 function NodeSpecificFields({
   node,
   onPatch,
-  onDrill,
 }: {
   node: SceneNode;
   onPatch: (patch: Partial<SceneNode>) => void;
-  onDrill: (id: string) => void;
 }) {
   switch (node.type) {
     case 'text':
@@ -449,12 +423,9 @@ function NodeSpecificFields({
       );
     case 'group':
       return (
-        <>
-          <div className="text-xs text-foreground/50">
-            {node.childIds.length} items inside
-          </div>
-          <ActionButton label="Edit inside group" onClick={() => onDrill(node.id)} />
-        </>
+        <div className="text-xs text-foreground/50">
+          {node.childIds.length} items inside. Open it from Layers to edit contents.
+        </div>
       );
     case 'line':
     case 'arrow':
@@ -841,9 +812,7 @@ export function PropertiesPanelContent({ showLayers = true }: { showLayers?: boo
     </div>
   ) : null;
 
-  const inspectMeta = selectedIds.length > 1
-    ? `${selectedIds.length} selected`
-    : selectedNode?.type;
+  const inspectMeta = selectedIds.length > 1 ? `${selectedIds.length} selected` : undefined;
 
   const inspectPane = (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -859,26 +828,17 @@ export function PropertiesPanelContent({ showLayers = true }: { showLayers?: boo
             <div className="text-xs text-foreground/55">
               {selectedIds.length} objects selected.
             </div>
-            <div className="text-[11px] text-foreground/42">
-              Use the layer list, context menu, or shortcuts to group, hide, or delete them.
-            </div>
           </Subsection>
         ) : null}
 
         {selectedNode ? (
           <>
-            <Subsection title="Selection">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-foreground/88">
-                  {selectedNode.name}
-                </div>
-                <div className="mt-0.5 text-[11px] text-foreground/45">
+            <Subsection title="Layer">
+              <FieldRow label="type">
+                <div className="text-xs text-foreground/55">
                   {selectedNode.type}
                 </div>
-              </div>
-            </Subsection>
-
-            <Subsection title="Properties">
+              </FieldRow>
               <FieldRow label="name">
                 <CommitTextInput
                   value={selectedNode.name}
@@ -923,7 +883,6 @@ export function PropertiesPanelContent({ showLayers = true }: { showLayers?: boo
                 <NodeSpecificFields
                   node={selectedNode}
                   onPatch={(patch) => commitPatch(selectedNode, patch)}
-                  onDrill={(id) => setDrillScope(id)}
                 />
               </Subsection>
             ) : null}
@@ -946,21 +905,8 @@ export function PropertiesPanelContent({ showLayers = true }: { showLayers?: boo
 }
 
 export function PropertiesPanel() {
-  const selectedIds = useEditorStore((s) => s.selectedIds);
-
   return (
     <aside className="hidden md:flex h-full w-[280px] min-w-[280px] flex-col border-l border-border/60 bg-background">
-      <div className="border-b border-border/60 px-3 py-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-[11px] font-semibold text-foreground/78">
-            Layers & Inspect
-          </div>
-          <div className="text-[10px] uppercase tracking-[0.08em] text-foreground/35">
-            {selectedIds.length > 0 ? `${selectedIds.length} selected` : 'Ready'}
-          </div>
-        </div>
-      </div>
-
       <div className="min-h-0 flex-1">
         <PropertiesPanelContent />
       </div>
