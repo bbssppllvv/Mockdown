@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Pin the workspace root so Next.js does not climb up to the parent
+  // doc2md repo (which also has a package-lock.json) when sketch2md lives
+  // under doc2md/.ws/ during local development.
+  turbopack: {
+    root: import.meta.dirname,
+  },
   async headers() {
     return [
       {
