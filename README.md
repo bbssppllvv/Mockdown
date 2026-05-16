@@ -1,16 +1,18 @@
 ```
  ┌──────────────────────────────────────┐
  │                                      │
- │   (•˕ •マ   M O C K D O W N         │
+ │   (•˕ •マ   s k e t c h 2 m d       │
  │                                      │
- │   draw UI. copy text. feed your AI.  │
+ │   draw UI. copy markdown. ship to AI.│
  │                                      │
  └──────────────────────────────────────┘
 ```
 
 AI agents read markdown better than they read your mind.
 
-Mockdown is an ascii wireframe editor. Draw a UI, copy it as a markdown code block, paste it into Claude Code or Cursor. The agent gets layout, hierarchy, and structure — no guessing.
+sketch2md is an ascii wireframe editor. Draw a UI, copy it as a markdown code block, paste it into Claude Code, Codex, or Cursor. The agent gets layout, hierarchy, and structure — no guessing.
+
+It is the sketch sibling of [doc2md](https://github.com/KjellKod/doc2md): doc2md turns existing documents into markdown for agents, sketch2md turns your hand-drawn UI ideas into the same.
 
 ## why
 
@@ -113,6 +115,18 @@ for the magic tool, add `OPENROUTER_API_KEY` to `.env.local`.
 
 next.js · react · zustand · tailwind · html canvas · local monospace stack
 
+## origins
+
+sketch2md is a friendly fork of [Mockdown](https://github.com/bbssppllvv/Mockdown) by [@bbssppllvv](https://github.com/bbssppllvv), who got the design and the core editor a long way down the field. Big credit for the original idea, the scene-graph architecture, and the kaomoji.
+
+This fork takes its own spin:
+
+- **putting it under test** — the upstream ships with no tests; the editor's hit-testing, resize math, scene-graph mutations, and undo/redo deserve coverage before they get extended
+- **UX polish** — fixing the rough edges that make the editor frustrating to use in practice (select/drag glitches, keyboard-shortcut conflicts, properties panel quirks)
+- **alignment with the doc2md product family** — same target user, same "structured text for agents" philosophy
+
+Upstream PRs welcome back if @bbssppllvv resurfaces. Until then, the fork is the one that's moving.
+
 ## license
 
-MIT (ᵕ‿ ᵕマ
+MIT — see [LICENSE](./LICENSE). Original copyright (c) 2026 bbssppllvv. Fork copyright (c) 2026 Kjell Hedström. (ᵕ‿ ᵕマ
