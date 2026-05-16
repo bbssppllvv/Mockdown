@@ -1,4 +1,16 @@
 version: 2
+
+# Notes on the update surface:
+# - All GitHub Actions in .github/workflows/*.yml are pinned to commit SHAs with
+#   a `# vX.Y.Z` comment. Dependabot watches that comment and proposes PRs that
+#   advance both the SHA and the comment when a new release is published.
+# - The @openai/codex CLI is NOT installed via package.json; it is downloaded as
+#   a tarball in the codex-ci-review workflow and verified against the SHA-512
+#   recorded in .github/codex-cli-integrity.txt. Dependabot does not see it.
+#   Drift in that version is handled by the codex-version-drift.yml workflow,
+#   which opens a weekly issue when the npm registry advances past the pinned
+#   version. Bump .github/codex-cli-version.txt and .github/codex-cli-integrity.txt
+#   together when accepting that drift.
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"

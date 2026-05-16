@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Check Codex CLI registry drift
         env:
@@ -33,13 +33,22 @@ jobs:
             exit 0
           fi
 
+          LATEST_INTEGRITY="$(npm view @openai/codex@${LATEST_VERSION} dist.integrity)"
+
           BODY="$(mktemp)"
           cat >"$BODY" <<EOF
           Checked-in Codex CLI version: \`$CURRENT_VERSION\`
           Latest npm registry version: \`$LATEST_VERSION\`
+          Latest npm tarball integrity: \`$LATEST_INTEGRITY\`
 
-          The CI review workflow intentionally installs the latest \`@openai/codex\`.
-          If this drift is accepted, update \`.github/codex-cli-version.txt\` to \`$LATEST_VERSION\`.
+          The CI review workflow installs the pinned tarball declared in
+          \`.github/codex-cli-version.txt\` and verifies it against the SHA-512
+          recorded in \`.github/codex-cli-integrity.txt\` before running it.
+
+          To accept this drift, vet the release notes for \`@openai/codex\` at
+          this version, then update **both** files in the same commit:
+          - \`.github/codex-cli-version.txt\` → \`$LATEST_VERSION\`
+          - \`.github/codex-cli-integrity.txt\` → \`$LATEST_INTEGRITY\`
           EOF
 
           ISSUE_NUMBER="$(
