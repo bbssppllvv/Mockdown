@@ -45,3 +45,7 @@ next-env.d.ts
 /src/app/trace/
 /src/components/trace/
 /src/hooks/use-trace-store.ts
+
+# python helper caches
+__pycache__/
+*.py[cod]

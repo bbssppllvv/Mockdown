@@ -1,0 +1,53 @@
+name: PR Body Gate
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - ready_for_review
+      - reopened
+
+jobs:
+  pr-body-gate:
+    name: pr-body-gate
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+
+    steps:
+      - name: Validate required PR sections
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const body = context.payload.pull_request?.body || "";
+
+            // Each required section maps to a list of accepted heading variants.
+            // Headings can be h2 (##) or h3 (###). Matching is case-insensitive.
+            const requiredSections = [
+              { name: "Summary", patterns: ["summary", "overview"] },
+              { name: "Changes", patterns: ["changes", "what changed", "key changes", "files changed"] },
+              { name: "Validation", patterns: ["validation", "test plan", "testing", "how to test", "verification", "smoke test results"] },
+            ];
+
+            const missing = requiredSections.filter(({ patterns }) => {
+              return !patterns.some((p) => {
+                const re = new RegExp(`^\\s*#{2,3}\\s+${p}\\s*$`, "mi");
+                return re.test(body);
+              });
+            });
+
+            if (missing.length > 0) {
+              core.setFailed(
+                [
+                  "PR body is missing required sections:",
+                  ...missing.map((s) => `- ${s.name} (accepted: ${s.patterns.join(", ")})`),
+                  "",
+                  "Use ## or ### headings. Matching is case-insensitive.",
+                ].join("\n")
+              );
+              return;
+            }
+
+            core.info("PR body gate passed.");

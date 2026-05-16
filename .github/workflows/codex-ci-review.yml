@@ -1,0 +1,185 @@
+name: Codex CI Code Review
+
+# Requires the `OPENAI_API_KEY` secret to be configured on the `codex-ci-review`
+# GitHub Environment. Until then, the workflow short-circuits with a skip notice.
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: codex-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  codex-review:
+    # Trusted execution rules:
+    # - non-draft only: avoid running review on work in progress
+    # - trusted author AND trusted sender: PR creator must be the maintainer,
+    #   and so must whoever triggered THIS run (catches a non-author force-push
+    #   on synchronize events when a future co-maintainer exists)
+    # - same-repo heads only: never run this secret-bearing workflow for forked PRs
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.login == 'KjellKod' &&
+      github.event.sender.login == 'KjellKod' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: codex-ci-review
+    timeout-minutes: 10
+
+    steps:
+      # Trust zone: prep. Read repository and PR state, then assemble untrusted inputs.
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Check API key availability
+        id: check-key
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "OPENAI_API_KEY is not available. Skipping review."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=OPENAI_API_KEY was unavailable in the codex-ci-review environment." >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=" >> "$GITHUB_OUTPUT"
+          fi
+
+      # SECURITY: Helper scripts come from the BASE checkout (already on disk),
+      # NOT from PR HEAD. Reason: a PR that modified scripts/codex_review_*.py
+      # or scripts/build_pr_head_files.py would otherwise have the modified
+      # version executed by this workflow with OPENAI_API_KEY available and
+      # GITHUB_TOKEN holding pull-requests: write. The same applies to the
+      # prompt template. Enforced by scripts/security_ci_guard.py — do not
+      # change this to fetch from $HEAD_SHA / pull_request.head.sha without
+      # also relaxing that gate, and do not relax that gate.
+      - name: Stage review helpers from base ref
+        run: |
+          mkdir -p /tmp/codex-review
+          cp scripts/build_pr_head_files.py  /tmp/codex-review/
+          cp scripts/codex_review_prepare.py /tmp/codex-review/
+          cp scripts/codex_review_post.py    /tmp/codex-review/
+          cp .github/codex-review-prompt.md  /tmp/codex-review/codex-review-prompt.md
+          chmod +x /tmp/codex-review/*.py
+
+      - name: Prepare review context
+        if: steps.check-key.outputs.skip != 'true'
+        id: prepare
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 /tmp/codex-review/codex_review_prepare.py \
+            --pr-number "${{ github.event.pull_request.number }}" \
+            --repo "$REPO" \
+            --output-dir /tmp/codex-review \
+            --prompt-template /tmp/codex-review/codex-review-prompt.md \
+            --build-pr-head-files-script /tmp/codex-review/build_pr_head_files.py \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Install Codex CLI and sandbox deps
+        if: steps.check-key.outputs.skip != 'true'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq bubblewrap >/dev/null 2>&1 || true
+          npm install -g --ignore-scripts @openai/codex
+
+      - name: Authenticate Codex CLI
+        if: steps.check-key.outputs.skip != 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          printenv OPENAI_API_KEY | codex login --with-api-key
+          codex login status
+
+      # Trust zone: model. Run Codex with sanitized inputs and no GitHub token in env.
+      - name: AI Code Review
+        if: steps.check-key.outputs.skip != 'true'
+        id: review
+        continue-on-error: true
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          PROMPT_SIZE=$(wc -c < /tmp/codex-review/review-prompt.md)
+          PROMPT_LINES=$(wc -l < /tmp/codex-review/review-prompt.md)
+          echo "::notice::Review prompt: ${PROMPT_SIZE} bytes, ${PROMPT_LINES} lines"
+
+          CODEX_EXIT=0
+          timeout 300 codex exec \
+            --sandbox read-only \
+            --output-last-message /tmp/codex-review/review-output.json \
+            - < /tmp/codex-review/review-prompt.md || CODEX_EXIT=$?
+
+          if [ "$CODEX_EXIT" -eq 124 ]; then
+            echo "::error::Codex timed out after 300 seconds. Prompt was ${PROMPT_SIZE} bytes. Consider reducing diff size or increasing timeout."
+          elif [ "$CODEX_EXIT" -ne 0 ]; then
+            echo "::error::Codex exited with code $CODEX_EXIT"
+          fi
+
+          OUTPUT_SIZE=0
+          if [ -s /tmp/codex-review/review-output.json ]; then
+            OUTPUT_SIZE=$(wc -c < /tmp/codex-review/review-output.json)
+            echo "::notice::Review output: ${OUTPUT_SIZE} bytes"
+          else
+            echo "::error::No review output produced. Codex exit code: $CODEX_EXIT, prompt size: ${PROMPT_SIZE} bytes"
+          fi
+          REVIEW_EXIT_CODE="$CODEX_EXIT" REVIEW_OUTPUT_BYTES="$OUTPUT_SIZE" python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          metadata_path = Path("/tmp/codex-review/review-metadata.json")
+          data = json.loads(metadata_path.read_text(encoding="utf-8"))
+          data["review_exit_code"] = int(os.environ["REVIEW_EXIT_CODE"])
+          data["review_output_bytes"] = int(os.environ["REVIEW_OUTPUT_BYTES"])
+          metadata_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+          PY
+          echo "exit_code=$CODEX_EXIT" >> "$GITHUB_OUTPUT"
+          echo "output_size=$OUTPUT_SIZE" >> "$GITHUB_OUTPUT"
+
+      - name: Upload review artifacts
+        if: always() && steps.check-key.outputs.skip != 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: codex-review-results
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            /tmp/codex-review/diff_ranges.json
+            /tmp/codex-review/review-output.json
+            /tmp/codex-review/review-metadata.json
+            /tmp/codex-review/review-prompt.md
+
+      # Trust zone: publish. Validate and post findings with GitHub token only.
+      - name: Post review results
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+          REVIEW_SKIP_REASON: ${{ steps.check-key.outputs.skip_reason }}
+        run: |
+          if [ -s /tmp/codex-review/codex_review_post.py ]; then
+            python3 /tmp/codex-review/codex_review_post.py \
+              --review-output /tmp/codex-review/review-output.json \
+              --diff-ranges /tmp/codex-review/diff_ranges.json \
+              --existing-comments /tmp/codex-review/existing_comments.json \
+              --metadata /tmp/codex-review/review-metadata.json \
+              --skip-reason "$REVIEW_SKIP_REASON"
+          else
+            echo "::warning::Review helper script not available (fetch failed). Posting fallback comment."
+            gh pr comment "$PR_NUMBER" -R "$REPO" --body \
+              "**Codex Review Summary**: Review infrastructure failed to load. The review helper script could not be fetched. Check the workflow logs for details."
+          fi

@@ -1,0 +1,58 @@
+name: Codex version drift
+
+on:
+  schedule:
+    - cron: '0 12 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-codex-version:
+    name: check-codex-version
+    if: github.repository == 'KjellKod/sketch2md'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Check Codex CLI registry drift
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_TITLE: Codex CLI version drift
+        run: |
+          set -euo pipefail
+
+          CURRENT_VERSION="$(tr -d '[:space:]' < .github/codex-cli-version.txt)"
+          LATEST_VERSION="$(npm view @openai/codex version)"
+
+          if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
+            echo "Codex CLI version is current: $CURRENT_VERSION"
+            exit 0
+          fi
+
+          BODY="$(mktemp)"
+          cat >"$BODY" <<EOF
+          Checked-in Codex CLI version: \`$CURRENT_VERSION\`
+          Latest npm registry version: \`$LATEST_VERSION\`
+
+          The CI review workflow intentionally installs the latest \`@openai/codex\`.
+          If this drift is accepted, update \`.github/codex-cli-version.txt\` to \`$LATEST_VERSION\`.
+          EOF
+
+          ISSUE_NUMBER="$(
+            gh issue list \
+              --state open \
+              --search "$ISSUE_TITLE in:title" \
+              --json number,title \
+              --jq 'map(select(.title | startswith(env.ISSUE_TITLE))) | .[0].number // empty'
+          )"
+
+          if [ -n "$ISSUE_NUMBER" ]; then
+            gh issue edit "$ISSUE_NUMBER" --body-file "$BODY"
+            gh issue comment "$ISSUE_NUMBER" --body "Codex CLI drift still present: checked-in $CURRENT_VERSION, latest $LATEST_VERSION."
+          else
+            gh issue create --title "$ISSUE_TITLE: $CURRENT_VERSION -> $LATEST_VERSION" --body-file "$BODY"
+          fi

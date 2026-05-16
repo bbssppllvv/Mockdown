@@ -1,0 +1,54 @@
+name: Intent Review
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - ready_for_review
+      - reopened
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: intent-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  advisory-intent-review:
+    name: "advisory: intent-review"
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.login == 'KjellKod' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: intent-review
+    continue-on-error: true
+    timeout-minutes: 5
+
+    steps:
+      # Check out the BASE ref so the helper script comes from trusted code,
+      # not from the PR's HEAD. See SECURITY note in codex-ci-review.yml and
+      # the matching gate in scripts/security_ci_guard.py.
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Stage intent review helper from base ref
+        run: |
+          mkdir -p /tmp/intent-review
+          cp scripts/intent_review.py /tmp/intent-review/
+          chmod +x /tmp/intent-review/intent_review.py
+
+      - name: Run intent review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 /tmp/intent-review/intent_review.py \
+            --pr-number "${{ github.event.pull_request.number }}" \
+            --repo "$REPO" \
+            --report-path /tmp/intent-review/report.json

@@ -1,0 +1,45 @@
+name: Security
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install gitleaks
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp
+          chmod +x /tmp/gitleaks
+
+      - name: Run gitleaks
+        run: |
+          /tmp/gitleaks dir . \
+            --redact \
+            --exit-code 2 \
+            --report-format sarif \
+            --report-path results.sarif
+
+  workflow-guard:
+    name: workflow-guard
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Run workflow guard unit tests
+        run: python3 -m unittest discover -s tests/unit -p 'test_*.py' -v
+
+      - name: Run workflow security guard
+        run: python3 scripts/security_ci_guard.py
