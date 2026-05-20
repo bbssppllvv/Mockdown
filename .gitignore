@@ -49,3 +49,6 @@ next-env.d.ts
 # python helper caches
 __pycache__/
 *.py[cod]
+
+# Quest ephemeral state
+.quest/

@@ -1,0 +1,221 @@
+# Quest Orchestration Skill
+
+Multi-agent workflow for planning, reviewing, building, and fixing features through coordinated agent handoffs.
+
+## Usage
+
+```
+/quest "Add a loading skeleton to the candidate list"
+$quest "Add a loading skeleton to the candidate list"
+/quest "Implement the transparency audit plan"
+/quest transparency-v2_2026-02-02__1831
+/quest transparency-v2_2026-02-02__1831 "now review the code"
+/quest status
+```
+
+---
+
+## Procedure
+
+When starting, say: "Now I understand the Quest." Then proceed.
+
+### Step 1: Resume Check
+
+If the user provides a quest ID matching either supported Quest ID format (`<slug>_YYYY-MM-DD__HHMM` or `YYYY-MM-DD_HHMM__<slug>`):
+1. Read `.quest/<id>/state.json` and resume from the recorded phase
+2. Delegate to `delegation/workflow.md`
+
+If the user says `/quest status` or `$quest status`, handle as a utility command (see `delegation/workflow.md` Utility Commands).
+
+### Step 2: Classify Input (New Quest)
+
+If no quest ID is provided:
+1. Read `delegation/router.md`
+2. Evaluate the user's input against the 7 substance dimensions
+3. Produce the routing decision JSON: `{route, confidence (0.0-1.0), risk_level, complexity, reason, missing_information}`
+
+### Step 2b: Second Model Availability Probe (New Quest Only)
+
+**MANDATORY — run before Step 3.** From the repository root, execute the preflight check:
+
+```bash
+./scripts/quest_preflight.sh --orchestrator claude   # if you are Claude
+./scripts/quest_preflight.sh --orchestrator codex    # if you are Codex
+```
+
+The script is at the **repository root** (`scripts/quest_preflight.sh`), NOT inside the skill directory.
+
+1. Parse the JSON output. Cache `available` as a boolean for the session.
+2. If `available` is false:
+   - Display **every line** of the `warning` array from the JSON output as a blockquote before route options. The array contains the heading, setup commands, and instructions — show them all.
+   - Then pause quest startup and offer these choices:
+     ```
+     Second-model setup is not currently available.
+
+     Options:
+       1. Fix it now and rerun preflight (recommended)
+       2. Continue with a single-model quest for this run
+       3. Cancel
+     ```
+   - If the user selects "fix it now", do not create the quest folder yet. Let them complete the remediation, then rerun Step 2b.
+   - For Codex-led sessions, prefer `claude auth login` as the default interactive fix when Claude CLI auth is missing. If the warning indicates a restricted sandbox may be hiding auth state, rerun the preflight with whatever permissions are needed to read the real Claude CLI auth state.
+   - For Claude-led sessions, use the warning lines to guide Codex MCP install/auth remediation before rerunning Step 2b.
+   - Append "(Claude-only)" or "(Codex-only)" to solo/full quest option labels.
+3. If `available` is true, proceed normally.
+4. For Codex-led sessions, if the JSON includes `runtime_requirement: "host_context"`, treat that as authoritative:
+   - Claude bridge probing and Claude-designated role execution must use the same host-visible context that can see Claude CLI auth.
+   - Do not assume a sandbox-local `claude auth status` result is enough.
+   - The script retains a successful probe in `.quest/cache/claude_bridge_codex.json` by default, so a recent host-verified success can be reused across quest starts without repeating browser login.
+
+This result carries into workflow.md — do not re-probe there.
+
+### Step 3: Route
+
+Based on the router decision:
+
+**If route = "questioner":**
+1. Read `delegation/questioner.md`
+2. Follow the questioning procedure (1-3 questions at a time, max 10 total)
+3. Collect the structured summary
+4. Re-run router (Step 2) with enriched input (original prompt + summary)
+5. If route is now "workflow", "solo", or "manual": proceed to the matching handler below
+6. If route is still "questioner": allow one more short questioning pass (10-question total cap still applies), then proceed to workflow regardless
+
+**If route = "manual":**
+1. Present the routing classification with override options:
+   ```
+   Quest Assessment:
+     Risk: <risk_level>
+     Complexity: <complexity>
+     Recommended: manual (no pipeline)
+
+   Options:
+     1. Just do it (recommended) — no quest pipeline
+     2. Run as solo quest — single reviewer, lightweight
+     3. Run as full quest — dual reviews, arbiter
+     4. Cancel
+   ```
+2. If user selects "just do it": exit quest system. No quest folder is created. The user works directly.
+3. If user selects "solo" or "full": proceed to the matching handler below with the overridden route.
+4. If user selects "cancel": exit quest system immediately. No quest folder, journaling, or celebration.
+
+**If route = "solo":**
+1. Present the routing classification with override options:
+   ```
+   Quest Assessment:
+     Risk: <risk_level>
+     Complexity: <complexity>
+     Recommended route: solo (lightweight quest)
+
+   Options:
+     1. Run as solo quest (recommended) — single plan review, single code review
+     2. Run as full quest — dual reviews, arbiter, the works
+     3. Cancel
+   ```
+2. If user selects "solo": create quest folder with `quest_mode: "solo"`, proceed to workflow
+3. If user selects "full": create quest folder with `quest_mode: "workflow"`, proceed to workflow
+4. If user selects "cancel": exit quest system immediately. No quest folder, journaling, or celebration.
+
+**If route = "workflow":**
+1. Present the routing classification with override options:
+   ```
+   Quest Assessment:
+     Risk: <risk_level>
+     Complexity: <complexity>
+     Recommended route: full quest
+
+   Options:
+     1. Run as full quest (recommended)
+     2. Run as solo quest (lighter) — single reviewer
+     3. Cancel
+   ```
+2. If user selects "full": create quest folder with `quest_mode: "workflow"`, proceed to workflow
+3. If user selects "solo": create quest folder with `quest_mode: "solo"`, proceed to workflow
+4. If user selects "cancel": exit quest system immediately. No quest folder, journaling, or celebration.
+
+**After route selection (solo or workflow):**
+1. Present the routing classification to the user (see Risk Visibility below)
+2. Create quest folder (see Quest Folder Creation below)
+3. Read `delegation/workflow.md`
+4. Begin at workflow Step 1 (Precondition Check)
+
+### Risk Visibility
+
+Before creating the quest folder, present the routing classification to the user:
+
+1. Display the risk level and confidence:
+   - If `risk_level` is "high": **"Risk: HIGH — <reason>"**
+   - If `risk_level` is "medium": **"Risk: MEDIUM — <reason>"**
+   - If `risk_level` is "low": "Risk: low — <reason>"
+2. If the quest went through the questioner path, note this: "Questioning phase completed — gaps addressed before planning."
+3. Wait for user acknowledgment before proceeding (for high risk only). For medium and low, display and continue.
+
+### Quest Folder Structure
+
+`.quest/` contains:
+- Active quest directories (created per-run)
+- `archive/` — completed quests moved here after journaling (see Step 7 in workflow.md)
+- `audit.log` — persistent log across all quest runs
+
+### Quest Folder Creation
+
+1. Generate a slug (lowercase, hyphenated, 2-5 words) and inform the user
+2. **Ask the user** which workspace mode to use for this quest. Present these options:
+   - **branch** — create a `quest/<slug>` feature branch (switches away from current branch)
+   - **worktree** — create a `quest/<slug>` branch in a separate worktree (current branch stays checked out)
+   - **none** — stay on the current branch as-is
+   
+   If already on a non-default branch, inform the user and skip the prompt — the quest will use the current branch.
+   If the current workspace is not inside a git repository, skip the prompt — Quest must stay in the current workspace with `vcs_available: false`.
+
+3. Run quest startup branch preparation with the user's choice:
+   - Execute: `python3 scripts/quest_startup_branch.py --slug <slug> --mode <choice>`
+   - Parse the JSON result
+   - If `status` is `"blocked"`: show the returned `message`, do NOT create the quest folder yet, and stop for the user to resolve the git state or config
+   - If `status` is `"created"` or `"skipped"`: continue and surface the returned `message` to the user
+   - Record these fields for `state.json` initialization:
+     - `vcs_available`
+     - `branch`
+     - `branch_mode`
+     - `worktree_path` (if present)
+4. Read `quest_id_format` from `.ai/allowlist.json` using `quest_runtime.quest_ids.load_quest_id_format`; missing config defaults to `slug-first`.
+5. Create the Quest ID with `quest_runtime.quest_ids.format_quest_id(slug, timestamp, quest_id_format)`:
+   - Default slug-first: `<slug>_YYYY-MM-DD__HHMM`
+   - Optional date-first: `YYYY-MM-DD_HHMM__<slug>`
+6. Create `.quest/<id>/` with subfolders:
+   `phase_01_plan/`, `phase_02_implementation/`, `phase_03_review/`, `logs/`
+7. Write quest brief to `.quest/<id>/quest_brief.md` including:
+   - User input (original prompt)
+   - Questioner summary (if questioning occurred)
+   - **Router classification JSON** (the final routing decision that sent the quest to workflow). This is the classification produced by the most recent router evaluation — if the router ran twice (once before questioning, once after), record the second (final) classification.
+8. Copy `.ai/allowlist.json` to `.quest/<id>/logs/allowlist_snapshot.json`
+9. Initialize `state.json`:
+   ```json
+   {
+     "quest_id": "<id>",
+     "slug": "<slug>",
+     "phase": "plan",
+     "status": "pending",
+     "quest_mode": "workflow",
+     "vcs_available": true,
+     "branch": "quest/<slug> or current branch",
+     "branch_mode": "branch | worktree | none",
+     "worktree_path": "/absolute/path/to/worktree (worktree mode only)",
+     "plan_iteration": 0,
+     "fix_iteration": 0,
+     "created_at": "<timestamp>",
+     "updated_at": "<timestamp>"
+   }
+   ```
+   Set `quest_mode` to the user's final selection: `"workflow"` (default) or `"solo"`. This field is read by `workflow.md` to determine agent dispatch and by `validate-quest-state.sh` for artifact checks.
+   `vcs_available` must be copied directly from `scripts/quest_startup_branch.py` output. Do not infer it from `branch_mode`.
+   `branch_mode` records the actual startup mode used for this quest run after no-op handling. If Quest starts on an existing feature branch, set `branch_mode` to `"none"` and record that branch in `branch`.
+
+### UI Work Propagation
+
+When the recorded router classification has `ui_work: true`, downstream dispatch must load the UX skills:
+
+- Planner, builder, fixer agents auto-load `.skills/ux-context/SKILL.md`
+- Plan-reviewer and code-reviewer agents auto-load `.skills/ux-review/SKILL.md`
+
+The agent files in `.skills/quest/agents/` enforce this — the orchestrator's job is to preserve the full router JSON in the brief so each agent can read it.

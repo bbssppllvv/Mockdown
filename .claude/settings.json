@@ -1,0 +1,30 @@
+{
+  "sandbox": {
+    "network": {
+      "allowedDomains": ["api.openai.com"]
+    }
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"[quest-audit] $(date -Iseconds) Write/Edit: $TOOL_INPUT\" >> .quest/audit.log 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

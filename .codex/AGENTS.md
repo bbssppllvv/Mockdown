@@ -1,0 +1,71 @@
+# Codex Agent Entry Point
+
+This repository uses **layered documentation** for AI agent context management.
+
+## Start Here
+
+1. **[AGENTS.md](../AGENTS.md)** - Coding rules, architecture boundaries, and constraints
+2. **[DOCUMENTATION_STRUCTURE.md](../DOCUMENTATION_STRUCTURE.md)** - How docs are organized and how to navigate
+3. **[BOOTSTRAP.md](../.skills/BOOTSTRAP.md)** - How to start your "planning", "coding", "implementing" or "reviewer" task
+
+**BEFORE responding to any request you must:**
+1. Read `.skills/BOOTSTRAP.md` - agent framework instructions
+2. Follow the entry point defined in bootstrap document
+3. Read `DOCUMENTATION_STRUCTURE.md` for project specific context
+
+## Documentation Layers
+
+| Layer | Location | Purpose |
+|-------|----------|---------|
+| Principles | `AGENTS.md`, `README.md` | Stable rules, always loaded |
+| Architecture | `docs/architecture/` | System design, when understanding how things work |
+| Implementation | `docs/implementation/` | Active plans, when building features |
+| History | `docs/implementation/history/` | Past decisions, when investigating |
+| Guides | `docs/guides/` | Reference docs, when doing specific tasks |
+
+## Quick Navigation
+
+- **Multi-agent orchestration?** → Use `$quest` (thin wrapper in `.agents/skills/quest/SKILL.md`, which delegates to `.skills/quest/SKILL.md`)
+- **Celebrate a quest?** → Use `$celebrate` (thin wrapper in `.agents/skills/celebrate/SKILL.md`, which delegates to `.skills/celebrate/SKILL.md`)
+- **Building a feature?** → Use `.skills/implementer/` skill
+- **Reviewing an implementation plan?** → Use `.skills/plan-reviewer/` skill
+- **Reviewing code?** → Use `.skills/code-reviewer/` skill
+- **Lock in UX defaults (mobile, gray ramp, density, ratio, accent, destructive actions) for a UI project?** → Use `$sharpen ux-defaults` — walks each decision with a recommended answer attached. Auto-invoked when the workflow runs `$sharpen` during plan presentation on a `ui_work: true` quest.
+- **Review a UI / screen / component for UX?** → Use `$ux-review` command or `.skills/ux-review/` skill
+- **Producing UI work in a quest?** → The orchestrator auto-attaches `.skills/ux-context/` to planner, builder, and fixer when the router classifies the quest as `ui_work: true`
+- **Commit message?** → Use `.skills/git-commit-assistant/` skill
+- **Create or update a PR?** → Use `.skills/pr-assistant/` skill
+- **Understanding the system?** → Start with `docs/architecture/` if present
+
+## Quest Discipline (Codex)
+
+When the user invokes `$quest`, treat it as orchestration and follow the canonical rules from:
+- `AGENTS.md` (Quest Execution Discipline + PR Review Gate + engineering rubric)
+- `.skills/quest/delegation/workflow.md` (phase gates and merge flow)
+
+Critical rules (always apply, even if referenced files fail to load):
+- Before Build Phase, write only to `.quest/` artifacts (and `docs/implementation/` when needed). Do not edit project/source files.
+- Plan + dual review + arbiter + presentation/human approval must happen before implementation.
+- If the user requests "plan and build now" in one prompt, still run planning and gates first.
+
+Make sure you follow all the quest instructions to the letter, updating state, showing the plan, etc. Make sure you have dual plan reviewers with an arbiter, and dual code reviewers with an arbiter. etc. 
+
+## Skills
+
+This repository uses **skills** for specialized workflows. Skills are automatically discovered and used based on task context:
+
+- **quest:** Multi-agent orchestration for features (plan → review → build → review → fix)
+- **celebrate:** Play quest completion celebration animation with achievements, metrics, and credits
+- **plan-reviewer:** Review implementation plans and PR specifications for test coverage
+- **code-reviewer:** Review actual code for quality, security, and patterns
+- **ux-review:** Run the canonical UX stress-test rubric against a target (file, directory, URL, screenshot, or diff) and produce a P0–P3 critique with principle citations
+- **ux-context:** UX principles primer (auto-attached by quest orchestration when `ui_work: true`); bundles the canonical UX guidebook as a resource so the standard travels with the skill
+- **implementer:** Step-by-step implementation with traceability
+- **git-commit-assistant:** Generate commit messages from staged diff, match repo conventions, append Quest co-author trailer
+- **pr-assistant:** Create and update GitHub PRs in draft mode, generate title/description from branch commits
+
+See `.skills/BOOTSTRAP.md` for how to use skills with different AI platforms.
+
+---
+
+This structure reduces context pollution and keeps agents grounded in authoritative sources.
